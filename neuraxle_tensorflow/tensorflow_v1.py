@@ -24,12 +24,28 @@ from neuraxle.base import BaseSaver
 
 
 class TensorflowV1ModelWrapperMixin:
+    """
+    A class that represents a step that contains a tensorflow v1 model.
+
+    .. seealso::
+        `Using the saved model format <https://www.tensorflow.org/guide/saved_model>`_
+    """
     @abstractmethod
     def get_session(self):
+        """
+        Get the tensorflow tf.Session() object.
+
+        :return:
+        """
         raise NotImplementedError()
 
     @abstractmethod
     def get_graph(self):
+        """
+        Get the tensorflow tf.Graph() object.
+
+        :return: tf.Graph
+        """
         raise NotImplementedError()
 
 
