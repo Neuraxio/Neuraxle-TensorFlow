@@ -16,9 +16,21 @@ Neuraxle utility classes for tensorflow v1.
 
 """
 import os
+from abc import abstractmethod
+
 import tensorflow as tf
 
 from neuraxle.base import BaseSaver
+
+
+class TensorflowV1ModelWrapperMixin:
+    @abstractmethod
+    def get_session(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_graph(self):
+        raise NotImplementedError()
 
 
 class TensorflowV1StepSaver(BaseSaver):
