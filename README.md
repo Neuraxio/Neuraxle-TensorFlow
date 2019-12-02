@@ -18,6 +18,8 @@ neuraxle-tensorflow[tf_gpu]
 
 ## Usage example
 
+[See also a complete example](https://github.com/Neuraxio/LSTM-Human-Activity-Recognition/blob/neuraxle-refactor/steps/lstm_rnn_tensorflow_model_wrapper.py)
+
 ```python
 class YourTensorflowModelWrapper(TensorflowV1ModelWrapperMixin, BaseStep):
     def __init__(self):
@@ -95,4 +97,3 @@ class YourTensorflowModelWrapper(TensorflowV1ModelWrapperMixin, BaseStep):
     
 ```
 
-[See also a complete example](https://github.com/Neuraxio/LSTM-Human-Activity-Recognition/blob/neuraxle-refactor/steps/lstm_rnn_tensorflow_model_wrapper.py)
