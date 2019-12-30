@@ -34,55 +34,56 @@ class YourTensorflowModelWrapper(TensorflowV1ModelWrapperMixin, BaseStep):
         if self.is_initialized:
             return self
 
-        self.create_graph()
-
-        with self.graph.as_default():
-            # Launch the graph
-            with tf.variable_scope(LSTM_RNN_VARIABLE_SCOPE, reuse=tf.AUTO_REUSE):
-                pred = tf_model_forward(PRED_NAME, X_NAME, Y_NAME, self.hyperparams)
-
-                # Loss, optimizer and evaluation
-                # L2 loss prevents this overkill neural network to overfit the data
-
-                l2 = self.hyperparams['lambda_loss_amount'] * sum(
-                    tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables()
-                )
-
-                # Softmax loss
-                self.cost = tf.reduce_mean(
-                    tf.nn.softmax_cross_entropy_with_logits(
-                        labels=self.get_y_placeholder(),
-                        logits=pred
-                    )
-                ) + l2
-
-                # Adam Optimizer
-                self.optimizer = tf.train.AdamOptimizer(
-                    learning_rate=self.hyperparams['learning_rate']
-                ).minimize(self.cost)
-
-                self.correct_pred = tf.equal(tf.argmax(pred, 1), tf.argmax(self.get_tensor_by_name(Y_NAME), 1))
-                self.accuracy = tf.reduce_mean(tf.cast(self.correct_pred, tf.float32))
-
-                # To keep track of training's performance
-                self.test_losses = []
-                self.test_accuracies = []
-                self.train_losses = []
-                self.train_accuracies = []
-
-                self.create_session()
-
-                self.is_initialized = True
+        with self.create_graph().as_default():
+            self.initialize_graph()
+            self.is_initialized = True
 
         return self
+    
+    def initialize_graph(self):
+        with tf.variable_scope(LSTM_RNN_VARIABLE_SCOPE, reuse=tf.AUTO_REUSE):
+            pred = tf_model_forward(PRED_NAME, X_NAME, Y_NAME, self.hyperparams)
 
-     def create_graph(self):
+            # Loss, optimizer and evaluation
+            # L2 loss prevents this overkill neural network to overfit the data
+
+            l2 = self.hyperparams['lambda_loss_amount'] * sum(
+                tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables()
+            )
+
+            # Softmax loss
+            self.cost = tf.reduce_mean(
+                tf.nn.softmax_cross_entropy_with_logits(
+                    labels=self.get_y_placeholder(),
+                    logits=pred
+                )
+            ) + l2
+
+            # Adam Optimizer
+            self.optimizer = tf.train.AdamOptimizer(
+                learning_rate=self.hyperparams['learning_rate']
+            ).minimize(self.cost)
+
+            self.correct_pred = tf.equal(tf.argmax(pred, 1), tf.argmax(self.get_tensor_by_name(Y_NAME), 1))
+            self.accuracy = tf.reduce_mean(tf.cast(self.correct_pred, tf.float32))
+
+            # To keep track of training's performance
+            self.test_losses = []
+            self.test_accuracies = []
+            self.train_losses = []
+            self.train_accuracies = []
+
+            self.create_session()
+
+    def create_graph(self):
         self.graph = tf.Graph()
+        return self.graph
 
     def create_session(self):
         self.sess = tf.Session(config=tf.ConfigProto(log_device_placement=True), graph=self.graph)
         init = tf.global_variables_initializer()
         self.sess.run(init)
+        return self.sess
 
     def get_tensor_by_name(self, name):
         return self.graph.get_tensor_by_name("{0}/{1}:0".format(LSTM_RNN_VARIABLE_SCOPE, name))

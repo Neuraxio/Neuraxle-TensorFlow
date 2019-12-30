@@ -1,7 +1,7 @@
 """
-Neuraxle
-====================================
-This is the core of Neuraxle. Most pipeline steps derive (inherit) from those classes. They are worth noticing.
+Neuraxle Tensorflow Utility classes
+=========================================
+Neuraxle utility classes for tensorflow.
 ..
     Copyright 2019, Neuraxio Inc.
     Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,7 +29,7 @@ setup(
                 'abstractions to both ease research, development, and deployment of your ML applications.',
     long_description=_README,
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "Intended Audience :: Education",
         "Intended Audience :: Financial and Insurance Industry",
@@ -88,10 +88,6 @@ setup(
     install_requires=[
         'neuraxle>=0.2.1'
     ],
-    extras_requires={
-        "tf": ["tensorflow>=1.15"],
-        "tf_gpu": ["tensorflow-gpu>=1.15"],
-    },
     tests_require=["pytest", "pytest-cov"],
     include_package_data=True,
     license='Apache 2.0',
@@ -99,6 +95,14 @@ setup(
 )
 
 print("""
+Thank you for installing
+   _   _                               __
+  | \ | |                             |  |
+  |  \| | ___  _   _  _ __  ___ __  __ | |  ___
+  | . ` |/ _ \| | | || ' _||__ \\\\ \/ / | | / _ \\
+  | |\  || __|| |_| | | |  / _ | >  <  | | | __|
+  |_| \_|\___| \__,_||___| \_,_|/_/\_\ |__|\___|
+     ==> TensorFlow Edition.
 ____________________________________________________________________
  Thank you for installing neuraxle-tensorflow.
   

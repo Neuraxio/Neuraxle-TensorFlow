@@ -1,7 +1,7 @@
 """
-Neuraxle Tensorflow V1 Utility classes
+Neuraxle Tensorflow V2 Utility classes
 =========================================
-Neuraxle utility classes for tensorflow v1.
+Neuraxle utility classes for tensorflow v2.
 ..
     Copyright 2019, Neuraxio Inc.
     Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,27 +15,25 @@ Neuraxle utility classes for tensorflow v1.
     limitations under the License.
 
 """
-import os
 from abc import abstractmethod
-
-import tensorflow as tf
 
 from neuraxle.base import BaseSaver
 
 
-class TensorflowV1ModelWrapperMixin:
+class TensorflowV2ModelWrapperMixin:
     """
-    A class that represents a step that contains a tensorflow v1 model.
+    A class that represents a step that contains a tensorflow v2 model.
 
     .. seealso::
-        `Using the saved model format <https://www.tensorflow.org/guide/saved_model>`_
+        `Using the saved model format <https://www.tensorflow.org/guide/checkpoint>`_
     """
+
     @abstractmethod
-    def get_session(self):
+    def get_checkpoint(self):
         pass
 
     @abstractmethod
-    def get_graph(self):
+    def get_checkpoint_manager(self):
         pass
 
     @abstractmethod
@@ -48,7 +46,7 @@ class TensorflowV1ModelWrapperMixin:
         raise NotImplementedError()
 
 
-class TensorflowV1StepSaver(BaseSaver):
+class TensorflowV2StepSaver(BaseSaver):
     """
     Step saver for a tensorflow Session using tf.train.Saver().
     It saves, or restores the tf.Session() checkpoint at the context path using the step name as file name.
@@ -56,7 +54,7 @@ class TensorflowV1StepSaver(BaseSaver):
         `Using the saved model format <https://www.tensorflow.org/guide/saved_model>`_
     """
 
-    def save_step(self, step: 'TensorflowV1ModelWrapperMixin', context: 'ExecutionContext') -> 'BaseStep':
+    def save_step(self, step: 'TensorflowV2ModelWrapperMixin', context: 'ExecutionContext') -> 'BaseStep':
         """
         Save a step that is using tf.train.Saver().
         :param step: step to save
@@ -65,20 +63,13 @@ class TensorflowV1StepSaver(BaseSaver):
         :type context: ExecutionContext
         :return: saved step
         """
-        with step.get_graph().as_default():
-            saver = tf.train.Saver()
-            saver.save(
-                step.get_session(),
-                self._get_saved_model_path(context, step)
-            )
-
-            step.strip()
-
+        step.get_checkpoint_manager().save()
+        step.strip()
         return step
 
-    def load_step(self, step: 'TensorflowV1ModelWrapperMixin', context: 'ExecutionContext') -> 'BaseStep':
+    def load_step(self, step: 'TensorflowV2ModelWrapperMixin', context: 'ExecutionContext') -> 'BaseStep':
         """
-        Load a step that is using tensorflow using tf.train.Saver().
+        Load a step that is using tensorflow using tf.train.Checkpoint().
         :param step: step to load
         :type step: BaseStep
         :param context: execution context to load from
@@ -87,38 +78,17 @@ class TensorflowV1StepSaver(BaseSaver):
         """
         step.is_initialized = False
         step.setup()
-        with step.get_graph().as_default():
-            saver = tf.train.Saver()
-            saver.restore(
-                step.get_session(),
-                self._get_saved_model_path(context, step)
-            )
-
+        step.get_checkpoint().restore(step.get_checkpoint_manager().latest_checkpoint)
         return step
 
-    def can_load(self, step: 'TensorflowV1ModelWrapperMixin', context: 'ExecutionContext'):
+    def can_load(self, step: 'TensorflowV2ModelWrapperMixin', context: 'ExecutionContext') -> bool:
         """
         Returns whether or not we can load.
-        :param step: step to load
-        :type step: BaseStep
-        :param context: execution context to load from
-        :type context: ExecutionContext
-        :return: loaded step
-        """
-        meta_exists = os.path.exists(os.path.join(context.get_path(), "{0}.ckpt.meta".format(step.get_name())))
-        index_exists = os.path.exists(os.path.join(context.get_path(), "{0}.ckpt.index".format(step.get_name())))
-        return meta_exists and index_exists
 
-    def _get_saved_model_path(self, context, step):
-        """
-        Returns the saved model path using the given execution context, and step name.
         :param step: step to load
         :type step: BaseStep
         :param context: execution context to load from
         :type context: ExecutionContext
         :return: loaded step
         """
-        return os.path.join(
-            context.get_path(),
-            "{0}.ckpt".format(step.get_name())
-        )
+        return True
