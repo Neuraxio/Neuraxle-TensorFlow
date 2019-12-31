@@ -24,6 +24,14 @@ from neuraxle.base import BaseSaver, BaseStep, ExecutionContext
 
 
 class BaseTensorflowV1ModelStep(BaseStep):
+    """
+    Base class for tensorflow 1 steps.
+    It uses :class:`TensorflowV1StepSaver` for saving the model.
+
+    .. seealso::
+        `Using the saved model format <https://www.tensorflow.org/guide/checkpoint>`_,
+        :class:`~neuraxle.base.BaseStep`
+    """
     def __init__(
             self,
             variable_scope=None,
@@ -39,6 +47,12 @@ class BaseTensorflowV1ModelStep(BaseStep):
         self.tensorflow_props = {}
 
     def setup(self) -> BaseStep:
+        """
+        Setup tensorflow 1 graph, and session using a variable scope.
+
+        :return: self
+        :rtype: BaseStep
+        """
         if self.is_initialized:
             return self
 
@@ -54,15 +68,30 @@ class BaseTensorflowV1ModelStep(BaseStep):
                 self.session.run(init)
                 self.is_initialized = True
 
-    def teardown(self):
+    def teardown(self) -> BaseStep:
+        """
+        Close session on teardown.
+
+        :return:
+        """
         if self.session is not None:
             self.session.close()
         self.is_initialized = False
 
+        return self
+
     def strip(self):
+        """
+        Strip tensorflow 1 properties from to step to make the step serializable.
+
+        :return: stripped step
+        :rtype: BaseStep
+        """
         self.tensorflow_props = {}
         self.graph = None
         self.session = None
+
+        return self
 
     @abstractmethod
     def setup_graph(self):
@@ -74,6 +103,14 @@ class BaseTensorflowV1ModelStep(BaseStep):
 
     @abstractmethod
     def fit_model(self, data_inputs, expected_outputs=None) -> BaseStep:
+        """
+        Fit tensorflow model using the variable scope.
+
+        :param data_inputs: data inputs
+        :param expected_outputs: expected outputs to fit on
+        :return: fitted self
+        :rtype: BaseStep
+        """
         raise NotImplementedError()
 
     def transform(self, data_inputs, expected_outputs=None) -> 'BaseStep':
@@ -82,9 +119,24 @@ class BaseTensorflowV1ModelStep(BaseStep):
 
     @abstractmethod
     def transform_model(self, data_inputs):
+        """
+        Transform tensorflow model using the variable scope.
+
+        :param data_inputs:
+        :return:
+        """
         raise NotImplementedError()
 
     def __getitem__(self, item):
+        """
+        Get a graph tensor by name using get item.
+
+        :param item: tensor name
+        :type item: str
+
+        :return: tensor
+        :rtype: tf.Tensor
+        """
         if item in self.tensorflow_props:
             return self.tensorflow_props[item]
 

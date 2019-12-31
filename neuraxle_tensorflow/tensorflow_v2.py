@@ -20,9 +20,19 @@ from abc import abstractmethod
 
 from neuraxle.base import BaseSaver, BaseStep, ExecutionContext
 import tensorflow as tf
+from tensorflow_core.python.keras.optimizer_v2 import optimizer_v2
 
 
 class BaseTensorflowV2ModelStep(BaseStep):
+    """
+    Base class for tensorflow 2 steps.
+    It uses :class:`TensorflowV2StepSaver` for saving the model.
+
+    .. seealso::
+        `Using the checkpoint model format <https://www.tensorflow.org/guide/checkpoint>`_,
+        :class:`~neuraxle.base.BaseStep`
+    """
+
     def __init__(self, checkpoint_folder=None, hyperparams=None):
         BaseStep.__init__(
             self,
@@ -35,6 +45,12 @@ class BaseTensorflowV2ModelStep(BaseStep):
         self.checkpoint_folder = checkpoint_folder
 
     def setup(self) -> BaseStep:
+        """
+        Setup optimizer, model, and checkpoints for saving.
+
+        :return: step
+        :rtype: BaseStep
+        """
         if self.is_initialized:
             return self
 
@@ -52,21 +68,34 @@ class BaseTensorflowV2ModelStep(BaseStep):
 
         return self
 
-    def teardown(self):
-        self.is_initialized = False
-
     def strip(self):
+        """
+        Strip tensorflow 2 properties from to step to make it serializable.
+
+        :return:
+        """
         self.optimizer = None
         self.model = None
         self.checkpoint = None
         self.checkpoint_manager = None
 
     @abstractmethod
-    def create_optimizer(self):
+    def create_optimizer(self) -> optimizer_v2.OptimizerV2:
+        """
+        Create the tensorflow 2 optimizer to apply gradients.
+
+        :return: tensorflow optimizer v2
+        :rtype: optimizer_v2.OptimizerV2
+        """
         raise NotImplementedError()
 
     @abstractmethod
-    def create_model(self):
+    def create_model(self) -> tf.keras.Model:
+        """
+        Create the Tensorflow 2 Model to apply gradients.
+
+        :return:
+        """
         raise NotImplementedError()
 
 
@@ -76,7 +105,7 @@ class TensorflowV2StepSaver(BaseSaver):
     It saves, or restores the tf.Session() checkpoint at the context path using the step name as file name.
 
     .. seealso::
-        `Using the saved model format <https://www.tensorflow.org/guide/saved_model>`_
+        `Using the checkpoint model format <https://www.tensorflow.org/guide/checkpoint>`_
         :class:`~neuraxle.base.BaseSaver`
     """
 
