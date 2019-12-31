@@ -23,20 +23,16 @@ import tensorflow as tf
 
 
 class BaseTensorflowV2ModelStep(BaseStep):
-    def __init__(
-            self,
-            hyperparams=None,
-            tensorflow_checkpoint_folder=None
-    ):
+    def __init__(self, checkpoint_folder=None, hyperparams=None):
         BaseStep.__init__(
             self,
             savers=[TensorflowV2StepSaver()],
             hyperparams=hyperparams
         )
 
-        if tensorflow_checkpoint_folder is None:
-            tensorflow_checkpoint_folder = 'tensorflow_ckpts'
-        self.tensorflow_checkpoint_folder = tensorflow_checkpoint_folder
+        if checkpoint_folder is None:
+            checkpoint_folder = 'tensorflow_ckpts'
+        self.checkpoint_folder = checkpoint_folder
 
     def setup(self) -> BaseStep:
         if self.is_initialized:
@@ -48,7 +44,7 @@ class BaseTensorflowV2ModelStep(BaseStep):
         self.checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=self.optimizer, net=self.model)
         self.checkpoint_manager = tf.train.CheckpointManager(
             self.checkpoint,
-            self.tensorflow_checkpoint_folder,
+            self.checkpoint_folder,
             max_to_keep=3
         )
 
@@ -60,7 +56,10 @@ class BaseTensorflowV2ModelStep(BaseStep):
         self.is_initialized = False
 
     def strip(self):
-        self.tensorflow_props = {}
+        self.optimizer = None
+        self.model = None
+        self.checkpoint = None
+        self.checkpoint_manager = None
 
     @abstractmethod
     def create_optimizer(self):
@@ -73,15 +72,18 @@ class BaseTensorflowV2ModelStep(BaseStep):
 
 class TensorflowV2StepSaver(BaseSaver):
     """
-    Step saver for a tensorflow Session using tf.train.Saver().
+    Step saver for a tensorflow Session using tf.train.Checkpoint().
     It saves, or restores the tf.Session() checkpoint at the context path using the step name as file name.
+
     .. seealso::
         `Using the saved model format <https://www.tensorflow.org/guide/saved_model>`_
+        :class:`~neuraxle.base.BaseSaver`
     """
 
     def save_step(self, step: 'BaseTensorflowV2ModelStep', context: 'ExecutionContext') -> 'BaseStep':
         """
         Save a step that is using tf.train.Saver().
+
         :param step: step to save
         :type step: BaseStep
         :param context: execution context to save from
@@ -95,6 +97,7 @@ class TensorflowV2StepSaver(BaseSaver):
     def load_step(self, step: 'BaseTensorflowV2ModelStep', context: 'ExecutionContext') -> 'BaseStep':
         """
         Load a step that is using tensorflow using tf.train.Checkpoint().
+
         :param step: step to load
         :type step: BaseStep
         :param context: execution context to load from

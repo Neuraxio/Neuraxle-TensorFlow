@@ -17,8 +17,8 @@ class LinearModel(tf.keras.Model):
 
 
 class Tensorflow2Model(BaseTensorflowV2ModelStep):
-    def __init__(self, tensorflow_checkpoint_folder=None):
-        BaseTensorflowV2ModelStep.__init__(self, tensorflow_checkpoint_folder)
+    def __init__(self=None, checkpoint_folder=None, hyperparams=None):
+        BaseTensorflowV2ModelStep.__init__(self, checkpoint_folder=checkpoint_folder, hyperparams=hyperparams)
 
     def create_optimizer(self):
         return tf.keras.optimizers.Adam(0.1)
@@ -53,7 +53,7 @@ def toy_dataset():
 
 def test_tensorflowv2_saver(tmpdir):
     model = Pipeline([
-        Tensorflow2Model(tensorflow_checkpoint_folder=os.path.join(tmpdir, 'tf_checkpoints'))
+        Tensorflow2Model(os.path.join(tmpdir, 'tf_checkpoints'))
     ])
     dataset = toy_dataset()
     loss_first_fit = evaluate_model_on_dataset(model, dataset)
@@ -61,7 +61,7 @@ def test_tensorflowv2_saver(tmpdir):
     model.save(ExecutionContext(root=tmpdir))
 
     loaded = Pipeline([
-        Tensorflow2Model(tensorflow_checkpoint_folder=os.path.join(tmpdir, 'tf_checkpoints'))
+        Tensorflow2Model(os.path.join(tmpdir, 'tf_checkpoints'))
     ]).load(ExecutionContext(root=tmpdir))
     loss_second_fit = evaluate_model_on_dataset(loaded, dataset)
     assert loss_second_fit < (loss_first_fit / 2)

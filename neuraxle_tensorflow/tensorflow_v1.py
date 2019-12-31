@@ -97,8 +97,10 @@ class TensorflowV1StepSaver(BaseSaver):
     """
     Step saver for a tensorflow Session using tf.train.Saver().
     It saves, or restores the tf.Session() checkpoint at the context path using the step name as file name.
+
     .. seealso::
-        `Using the saved model format <https://www.tensorflow.org/guide/saved_model>`_
+        `Using the saved model format <https://www.tensorflow.org/guide/saved_model>`_,
+        :class:`~neuraxle.base.BaseSaver`
     """
 
     def save_step(self, step: 'BaseTensorflowV1ModelStep', context: 'ExecutionContext') -> 'BaseStep':
