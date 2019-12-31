@@ -34,9 +34,10 @@ class Tensorflow2Model(BaseTensorflowV2ModelStep):
             output = self.model(x)
             self.loss = tf.reduce_mean(tf.abs(output - y))
 
-        variables = self.model.trainable_variables
-        gradients = tape.gradient(self.loss, variables)
-        self.optimizer.apply_gradients(zip(gradients, variables))
+        self.optimizer.apply_gradients(zip(
+            tape.gradient(self.loss, self.model.trainable_variables),
+            self.model.trainable_variables
+        ))
 
         return self
 

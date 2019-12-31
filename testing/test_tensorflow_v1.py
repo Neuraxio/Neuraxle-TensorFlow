@@ -8,6 +8,8 @@ from neuraxle.pipeline import Pipeline
 
 from neuraxle_tensorflow.tensorflow_v1 import BaseTensorflowV1ModelStep
 
+N_SAMPLES = 17
+
 MATMUL_VARIABLE_SCOPE = "matmul"
 
 
@@ -19,76 +21,50 @@ class Tensorflow1Model(BaseTensorflowV1ModelStep):
             self,
             variable_scope=variable_scope,
             hyperparams=HyperparameterSamples({
-                'learning_rate': 0.01,
-                'lambda_loss_amount': 0.0015
+                'learning_rate': 0.01
             })
         )
 
     def setup_graph(self) -> Dict:
-        tf.placeholder(tf.float32, [None, None], name='x')
-        tf.placeholder(tf.float32, [None, None], name='y')
+        tf.placeholder('float', name='x')
+        tf.placeholder('float', name='y')
 
-        l2 = self.hyperparams['lambda_loss_amount'] * sum(tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables())
-        pred = tf.keras.layers.Dense(5)
-        loss = tf.reduce_mean(pred) + l2
-        optimizer = tf.train.AdamOptimizer(
-            learning_rate=self.hyperparams['learning_rate']
-        ).minimize(loss)
+        tf.Variable(np.random.rand(), name='weight')
+        tf.Variable(np.random.rand(), name='bias')
 
-        tf.equal(tf.argmax(self['pred'], 1), tf.argmax(self['y'], 1), name='correct_pred')
-        tf.reduce_mean(tf.cast(self['correct_pred'], tf.float32), name='accuracy')
+        tf.add(tf.multiply(self['x'], self['weight']), self['bias'], name='pred')
+
+        loss = tf.reduce_sum(tf.pow(self['pred'] - self['y'], 2)) / (2 * N_SAMPLES)
+        optimizer = tf.train.GradientDescentOptimizer(self.hyperparams['learning_rate']).minimize(loss)
 
         return {
-            'pred': pred,
             'loss': loss,
             'optimizer': optimizer
         }
 
     def fit_model(self, data_inputs, expected_outputs=None) -> 'BaseStep':
-        _, loss, acc = self.session.run(
-            [self['optimizer'], self['loss'], self['accuracy']],
-            feed_dict={
-                self['x']: np.array(data_inputs),
-                self['y']: np.array(expected_outputs)
-            }
-        )
-        self.loss = loss
+        for (x, y) in zip(data_inputs, expected_outputs):
+            self.session.run(self['optimizer'], feed_dict={self['x']: x, self['y']: y})
 
         self.is_invalidated = True
 
         return self
 
     def transform_model(self, data_inputs):
-        return self.session.run(
-            [self['pred']],
-            feed_dict={self['x']: np.array(data_inputs)}
-        )[0]
-
-
-def toy_dataset():
-    return [
-        ([[0.], [1.]], [[0., 1., 2., 3., 4.], [5., 6., 7., 8., 9.]]),
-        ([[2.], [3.]], [[10., 11., 12., 13., 14.], [15., 16., 17., 18., 19.]]),
-        ([[4.], [5.]], [[20., 21., 22., 23., 24.], [25., 26., 27., 28., 29.]]),
-        ([[6.], [7.]], [[30., 31., 32., 33., 34.], [35., 36., 37., 38., 39.]])
-    ]
+        return self.session.run(self['weight']) * data_inputs + self.session.run(self['bias'])
 
 
 def test_tensorflowv1_saver(tmpdir):
+    data_inputs = np.array([3.3, 4.4, 5.5, 6.71, 6.93, 4.168, 9.779, 6.182, 7.59, 2.167,
+                            7.042, 10.791, 5.313, 7.997, 5.654, 9.27, 3.1])
+    expected_ouptuts = np.array([1.7, 2.76, 2.09, 3.19, 1.694, 1.573, 3.366, 2.596, 2.53, 1.221,
+                                 2.827, 3.465, 1.65, 2.904, 2.42, 2.94, 1.3])
     model = Pipeline([Tensorflow1Model()])
-    dataset = toy_dataset()
-    loss_first_fit = evaluate_model_on_dataset(model, dataset)
+    for i in range(50):
+        model, outputs = model.fit_transform(data_inputs, expected_ouptuts)
 
     model.save(ExecutionContext(root=tmpdir))
 
-    loaded = Pipeline([Tensorflow1Model()]).load(ExecutionContext(root=tmpdir))
-    loss_second_fit = evaluate_model_on_dataset(loaded, dataset)
-    assert loss_second_fit < (loss_first_fit / 2)
-
-
-def evaluate_model_on_dataset(model, dataset):
-    loss = []
-    for x, y in dataset:
-        model, outputs = model.fit_transform(x, y)
-        loss.append(model['Tensorflow1Model'].loss)
-    return sum(loss)
+    model = Pipeline([Tensorflow1Model()]).load(ExecutionContext(root=tmpdir))
+    model, outputs = model.fit_transform(data_inputs, expected_ouptuts)
+    assert ((outputs - expected_ouptuts) ** 2).mean() < 0.25
