@@ -18,32 +18,56 @@ Neuraxle utility classes for tensorflow v2.
 """
 from abc import abstractmethod
 
-from neuraxle.base import BaseSaver
+from neuraxle.base import BaseSaver, BaseStep, ExecutionContext
+import tensorflow as tf
 
 
-class TensorflowV2ModelWrapperMixin:
-    """
-    A class that represents a step that contains a tensorflow v2 model.
+class BaseTensorflowV2ModelStep(BaseStep):
+    def __init__(
+            self,
+            hyperparams=None,
+            tensorflow_checkpoint_folder=None
+    ):
+        BaseStep.__init__(
+            self,
+            savers=[TensorflowV2StepSaver()],
+            hyperparams=hyperparams
+        )
 
-    .. seealso::
-        `Using the saved model format <https://www.tensorflow.org/guide/checkpoint>`_
-    """
+        if tensorflow_checkpoint_folder is None:
+            tensorflow_checkpoint_folder = 'tensorflow_ckpts'
+        self.tensorflow_checkpoint_folder = tensorflow_checkpoint_folder
 
-    @abstractmethod
-    def get_checkpoint(self):
-        pass
+    def setup(self) -> BaseStep:
+        if self.is_initialized:
+            return self
 
-    @abstractmethod
-    def get_checkpoint_manager(self):
-        pass
+        self.optimizer = self.create_optimizer()
+        self.model = self.create_model()
 
-    @abstractmethod
+        self.checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=self.optimizer, net=self.model)
+        self.checkpoint_manager = tf.train.CheckpointManager(
+            self.checkpoint,
+            self.tensorflow_checkpoint_folder,
+            max_to_keep=3
+        )
+
+        self.is_initialized = True
+
+        return self
+
+    def teardown(self):
+        self.is_initialized = False
+
     def strip(self):
-        """
-        Get the tensorflow tf.Graph() object.
+        self.tensorflow_props = {}
 
-        :return: tf.Graph
-        """
+    @abstractmethod
+    def create_optimizer(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def create_model(self):
         raise NotImplementedError()
 
 
@@ -55,7 +79,7 @@ class TensorflowV2StepSaver(BaseSaver):
         `Using the saved model format <https://www.tensorflow.org/guide/saved_model>`_
     """
 
-    def save_step(self, step: 'TensorflowV2ModelWrapperMixin', context: 'ExecutionContext') -> 'BaseStep':
+    def save_step(self, step: 'BaseTensorflowV2ModelStep', context: 'ExecutionContext') -> 'BaseStep':
         """
         Save a step that is using tf.train.Saver().
         :param step: step to save
@@ -64,11 +88,11 @@ class TensorflowV2StepSaver(BaseSaver):
         :type context: ExecutionContext
         :return: saved step
         """
-        step.get_checkpoint_manager().save()
+        step.checkpoint_manager.save()
         step.strip()
         return step
 
-    def load_step(self, step: 'TensorflowV2ModelWrapperMixin', context: 'ExecutionContext') -> 'BaseStep':
+    def load_step(self, step: 'BaseTensorflowV2ModelStep', context: 'ExecutionContext') -> 'BaseStep':
         """
         Load a step that is using tensorflow using tf.train.Checkpoint().
         :param step: step to load
@@ -79,10 +103,10 @@ class TensorflowV2StepSaver(BaseSaver):
         """
         step.is_initialized = False
         step.setup()
-        step.get_checkpoint().restore(step.get_checkpoint_manager().latest_checkpoint)
+        step.checkpoint.restore(step.checkpoint_manager.latest_checkpoint)
         return step
 
-    def can_load(self, step: 'TensorflowV2ModelWrapperMixin', context: 'ExecutionContext') -> bool:
+    def can_load(self, step: 'BaseTensorflowV2ModelStep', context: 'ExecutionContext') -> bool:
         """
         Returns whether or not we can load.
 

@@ -4,7 +4,7 @@ import tensorflow as tf
 from neuraxle.base import BaseStep, ExecutionContext
 from neuraxle.pipeline import Pipeline
 
-from neuraxle_tensorflow.tensorflow_v2 import TensorflowV2ModelWrapperMixin, TensorflowV2StepSaver
+from neuraxle_tensorflow.tensorflow_v2 import BaseTensorflowV2ModelStep
 
 
 class LinearModel(tf.keras.Model):
@@ -16,42 +16,20 @@ class LinearModel(tf.keras.Model):
         return self.l1(x)
 
 
-class Tensorflow2Model(TensorflowV2ModelWrapperMixin, BaseStep):
+class Tensorflow2Model(BaseTensorflowV2ModelStep):
     def __init__(self, tensorflow_checkpoint_folder=None):
-        BaseStep.__init__(self, savers=[TensorflowV2StepSaver()])
-        if tensorflow_checkpoint_folder is None:
-            tensorflow_checkpoint_folder = 'tf_chkpts'
-        self.tensorflow_checkpoint_folder = tensorflow_checkpoint_folder
+        BaseTensorflowV2ModelStep.__init__(self, tensorflow_checkpoint_folder)
 
-    def setup(self) -> BaseStep:
-        if self.is_initialized:
-            return self
+    def create_optimizer(self):
+        return tf.keras.optimizers.Adam(0.1)
 
-        self.optimizer = tf.keras.optimizers.Adam(0.1)
-        self.model = LinearModel()
-        self.checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=self.optimizer, net=self.model)
-        self.checkpoint_manager = tf.train.CheckpointManager(self.checkpoint, self.tensorflow_checkpoint_folder,
-                                                             max_to_keep=3)
-        self.is_initialized = True
-
-        return self
-
-    def get_checkpoint(self):
-        return self.checkpoint
-
-    def get_checkpoint_manager(self):
-        return self.checkpoint_manager
-
-    def strip(self):
-        self.optimizer = None
-        self.model = None
-        self.checkpoint = None
-        self.checkpoint_manager = None
-        self.loss = None
+    def create_model(self):
+        return LinearModel()
 
     def fit(self, data_inputs, expected_outputs=None) -> 'BaseStep':
         x = tf.convert_to_tensor(data_inputs)
         y = tf.convert_to_tensor(expected_outputs)
+
         with tf.GradientTape() as tape:
             output = self.model(x)
             self.loss = tf.reduce_mean(tf.abs(output - y))
@@ -63,8 +41,7 @@ class Tensorflow2Model(TensorflowV2ModelWrapperMixin, BaseStep):
         return self
 
     def transform(self, data_inputs):
-        x = tf.convert_to_tensor(data_inputs)
-        return self.model(x)
+        return self.model(tf.convert_to_tensor(data_inputs))
 
 
 def toy_dataset():
