@@ -20,7 +20,6 @@ from abc import abstractmethod
 
 from neuraxle.base import BaseSaver, BaseStep, ExecutionContext
 import tensorflow as tf
-from tensorflow_core.python.keras.optimizer_v2 import optimizer_v2
 
 
 class BaseTensorflowV2ModelStep(BaseStep):
@@ -80,7 +79,7 @@ class BaseTensorflowV2ModelStep(BaseStep):
         self.checkpoint_manager = None
 
     @abstractmethod
-    def create_optimizer(self) -> optimizer_v2.OptimizerV2:
+    def create_optimizer(self):
         """
         Create the tensorflow 2 optimizer to apply gradients.
 

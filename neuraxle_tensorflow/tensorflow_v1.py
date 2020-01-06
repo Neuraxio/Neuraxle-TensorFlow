@@ -17,15 +17,15 @@ Neuraxle utility classes for tensorflow v1.
 
 """
 import os
-from abc import abstractmethod
 
 import tensorflow as tf
 from neuraxle.base import BaseSaver, BaseStep, ExecutionContext
+from neuraxle.hyperparams.space import HyperparameterSamples, HyperparameterSpace
 
 from neuraxle_tensorflow.tensorflow import BaseTensorflowModelStep
 
 
-class BaseTensorflowV1ModelStep(BaseStep):
+class TensorflowV1ModelStep(BaseTensorflowModelStep):
     """
     Base class for tensorflow 1 steps.
     It uses :class:`TensorflowV1StepSaver` for saving the model.
@@ -34,19 +34,29 @@ class BaseTensorflowV1ModelStep(BaseStep):
         `Using the saved model format <https://www.tensorflow.org/guide/checkpoint>`_,
         :class:`~neuraxle.base.BaseStep`
     """
+    HYPERPARAMS = HyperparameterSamples({})
+    HYPERPARAMS_SPACE = HyperparameterSpace({})
+
     def __init__(
             self,
+            create_graph,
+            create_loss,
+            create_optimizer,
             variable_scope=None,
-            hyperparams=None
+            has_expected_outputs=False,
     ):
-        BaseStep.__init__(
+        BaseTensorflowModelStep.__init__(
             self,
-            savers=[TensorflowV1StepSaver()],
-            hyperparams=hyperparams
+            create_graph=create_graph,
+            create_loss=create_loss,
+            create_optimizer=create_optimizer,
+            step_saver=TensorflowV1StepSaver()
         )
 
+        if variable_scope is None:
+            variable_scope = self.name
         self.variable_scope = variable_scope
-        self.tensorflow_props = {}
+        self.has_expected_outputs = has_expected_outputs
 
     def setup(self) -> BaseStep:
         """
@@ -63,8 +73,9 @@ class BaseTensorflowV1ModelStep(BaseStep):
             with tf.variable_scope(self.variable_scope, reuse=tf.AUTO_REUSE):
                 self.session = tf.Session(config=tf.ConfigProto(log_device_placement=True), graph=self.graph)
 
-                self.tensorflow_props = self.setup_graph()
-                self.tensorflow_props = self.tensorflow_props if self.tensorflow_props is not None else {}
+                self.create_graph(self)
+                tf.identity(self.create_loss(self), name='loss')
+                self.create_optimizer(self).minimize(self['loss'], name='optimizer')
 
                 init = tf.global_variables_initializer()
                 self.session.run(init)
@@ -89,21 +100,15 @@ class BaseTensorflowV1ModelStep(BaseStep):
         :return: stripped step
         :rtype: BaseStep
         """
-        self.tensorflow_props = {}
         self.graph = None
         self.session = None
 
         return self
 
-    @abstractmethod
-    def setup_graph(self):
-        raise NotImplementedError()
-
     def fit(self, data_inputs, expected_outputs=None) -> 'BaseStep':
         with tf.variable_scope(self.variable_scope, reuse=tf.AUTO_REUSE):
             return self.fit_model(data_inputs, expected_outputs)
 
-    @abstractmethod
     def fit_model(self, data_inputs, expected_outputs=None) -> BaseStep:
         """
         Fit tensorflow model using the variable scope.
@@ -113,13 +118,19 @@ class BaseTensorflowV1ModelStep(BaseStep):
         :return: fitted self
         :rtype: BaseStep
         """
-        raise NotImplementedError()
+        self.session.run(
+            self['optimizer'],
+            feed_dict={
+                self['data_inputs']: data_inputs,
+                self['expected_outputs']: expected_outputs
+            }
+        )
+        return self
 
     def transform(self, data_inputs, expected_outputs=None) -> 'BaseStep':
         with tf.variable_scope(self.variable_scope, reuse=tf.AUTO_REUSE):
             return self.transform_model(data_inputs)
 
-    @abstractmethod
     def transform_model(self, data_inputs):
         """
         Transform tensorflow model using the variable scope.
@@ -127,7 +138,12 @@ class BaseTensorflowV1ModelStep(BaseStep):
         :param data_inputs:
         :return:
         """
-        raise NotImplementedError()
+        return self.session.run(
+            self['output'],
+            feed_dict={
+                self['data_inputs']: data_inputs
+            }
+        )
 
     def __getitem__(self, item):
         """
@@ -147,16 +163,12 @@ class BaseTensorflowV1ModelStep(BaseStep):
             tensor_name = item
             device = "0"
 
-        if item in self.tensorflow_props:
-            return self.tensorflow_props[item]
+        try:
+            result = self.graph.get_tensor_by_name("{0}/{1}:{2}".format(self.variable_scope, tensor_name, device))
+        except KeyError:
+            result = self.graph.get_operation_by_name("{0}/{1}".format(self.variable_scope, tensor_name))
 
-        return self.graph.get_tensor_by_name(
-            "{0}/{1}:{2}".format(self.variable_scope, tensor_name, device)
-        )
-
-class TensorflowV1ModelStep(BaseTensorflowModelStep):
-    def __init__(self):
-        pass
+        return result
 
 
 class TensorflowV1StepSaver(BaseSaver):
@@ -169,7 +181,7 @@ class TensorflowV1StepSaver(BaseSaver):
         :class:`~neuraxle.base.BaseSaver`
     """
 
-    def save_step(self, step: 'BaseTensorflowV1ModelStep', context: 'ExecutionContext') -> 'BaseStep':
+    def save_step(self, step: 'TensorflowV1ModelStep', context: 'ExecutionContext') -> 'BaseStep':
         """
         Save a step that is using tf.train.Saver().
         :param step: step to save
@@ -185,7 +197,7 @@ class TensorflowV1StepSaver(BaseSaver):
 
         return step
 
-    def load_step(self, step: 'BaseTensorflowV1ModelStep', context: 'ExecutionContext') -> 'BaseStep':
+    def load_step(self, step: 'TensorflowV1ModelStep', context: 'ExecutionContext') -> 'BaseStep':
         """
         Load a step that is using tensorflow using tf.train.Saver().
         :param step: step to load
@@ -203,7 +215,7 @@ class TensorflowV1StepSaver(BaseSaver):
 
         return step
 
-    def can_load(self, step: 'BaseTensorflowV1ModelStep', context: 'ExecutionContext'):
+    def can_load(self, step: 'TensorflowV1ModelStep', context: 'ExecutionContext'):
         """
         Returns whether or not we can load.
         :param step: step to load
