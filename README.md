@@ -4,97 +4,60 @@ TensorFlow steps, savers, and utilities for [Neuraxle](https://github.com/Neurax
 
 Neuraxle is a Machine Learning (ML) library for building neat pipelines, providing the right abstractions to both ease research, development, and deployment of your ML applications.
 
-## Installation for tensorflow>=1.15
-
-```
-neuraxle-tensorflow[tf]
-```
-
-## Installation for tensorflow-gpu>=1.15
-
-```
-neuraxle-tensorflow[tf_gpu]
-```
-
 ## Usage example
 
 [See also a complete example](https://github.com/Neuraxio/LSTM-Human-Activity-Recognition/blob/neuraxle-refactor/steps/lstm_rnn_tensorflow_model_wrapper.py)
 
+### Tensorflow 1
+
+Create a tensorflow 1 model step by giving it a graph, an optimizer, and a loss function. 
+
 ```python
-class YourTensorflowModelWrapper(TensorflowV1ModelWrapperMixin, BaseStep):
-    def __init__(self):
-        TensorflowV1ModelWrapperMixin.__init__(self)
-        BaseStep.__init__(
-            self, 
-            hyperparams=HYPERPARAMS,
-            savers=[TensorflowV1StepSaver()]
-        )
+def create_graph(step: TensorflowV1ModelStep):
+    tf.placeholder('float', name='data_inputs')
+    tf.placeholder('float', name='expected_outputs')
 
-    def setup(self) -> BaseStep:
-        if self.is_initialized:
-            return self
+    tf.Variable(np.random.rand(), name='weight')
+    tf.Variable(np.random.rand(), name='bias')
 
-        with self.create_graph().as_default():
-            self.initialize_graph()
-            self.is_initialized = True
+    tf.add(tf.multiply(step['data_inputs'], step['weight']), step['bias'], name='output')
 
-        return self
-    
-    def initialize_graph(self):
-        with tf.variable_scope(LSTM_RNN_VARIABLE_SCOPE, reuse=tf.AUTO_REUSE):
-            pred = tf_model_forward(PRED_NAME, X_NAME, Y_NAME, self.hyperparams)
+def create_loss(step: TensorflowV1ModelStep):
+    return tf.reduce_sum(tf.pow(step['output'] - step['expected_outputs'], 2)) / (2 * N_SAMPLES)
 
-            # Loss, optimizer and evaluation
-            # L2 loss prevents this overkill neural network to overfit the data
+def create_optimizer(step: TensorflowV1ModelStep):
+    return tf.train.GradientDescentOptimizer(step.hyperparams['learning_rate'])
 
-            l2 = self.hyperparams['lambda_loss_amount'] * sum(
-                tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables()
-            )
-
-            # Softmax loss
-            self.cost = tf.reduce_mean(
-                tf.nn.softmax_cross_entropy_with_logits(
-                    labels=self.get_y_placeholder(),
-                    logits=pred
-                )
-            ) + l2
-
-            # Adam Optimizer
-            self.optimizer = tf.train.AdamOptimizer(
-                learning_rate=self.hyperparams['learning_rate']
-            ).minimize(self.cost)
-
-            self.correct_pred = tf.equal(tf.argmax(pred, 1), tf.argmax(self.get_tensor_by_name(Y_NAME), 1))
-            self.accuracy = tf.reduce_mean(tf.cast(self.correct_pred, tf.float32))
-
-            # To keep track of training's performance
-            self.test_losses = []
-            self.test_accuracies = []
-            self.train_losses = []
-            self.train_accuracies = []
-
-            self.create_session()
-
-    def create_graph(self):
-        self.graph = tf.Graph()
-        return self.graph
-
-    def create_session(self):
-        self.sess = tf.Session(config=tf.ConfigProto(log_device_placement=True), graph=self.graph)
-        init = tf.global_variables_initializer()
-        self.sess.run(init)
-        return self.sess
-
-    def get_tensor_by_name(self, name):
-        return self.graph.get_tensor_by_name("{0}/{1}:0".format(LSTM_RNN_VARIABLE_SCOPE, name))
-
-    def get_graph(self):
-        return self.graph
-
-    def get_session(self):
-        return self.sess
-    
-    # ....
-    
+model_step = TensorflowV1ModelStep(
+    create_grah=create_graph,
+    create_loss=create_loss,
+    create_optimizer=create_optimizer,
+    has_expected_outputs=False
+).set_hyperparams(HyperparameterSamples({
+    'learning_rate': 0.01
+})).set_hyperparams_space(HyperparameterSpace({
+    'learning_rate': LogUniform(0.0001, 0.01)
+}))
 ```
 
+### Tensorflow 2
+
+Create a tensorflow 2 model step by giving it a model, an optimizer, and a loss function. 
+
+```python
+def create_model(step: Tensorflow2ModelStep):
+    return LinearModel()
+
+def create_optimizer(step: Tensorflow2ModelStep):
+    return tf.keras.optimizers.Adam(0.1)
+
+def create_loss(step: Tensorflow2ModelStep, expected_outputs, actual_outputs):
+    return tf.reduce_mean(tf.abs(actual_outputs - expected_outputs))
+
+model_step = Tensorflow2ModelStep(
+    create_model=create_model,
+    create_optimizer=create_optimizer,
+    create_loss=create_loss,
+    tf_model_checkpoint_folder=os.path.join(tmpdir, 'tf_checkpoints')
+)
+```
