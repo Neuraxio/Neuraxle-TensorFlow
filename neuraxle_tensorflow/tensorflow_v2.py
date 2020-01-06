@@ -33,16 +33,16 @@ class BaseTensorflowV2ModelStep(BaseStep):
         :class:`~neuraxle.base.BaseStep`
     """
 
-    def __init__(self, checkpoint_folder=None, hyperparams=None):
+    def __init__(self, tf_model_checkpoint_folder=None, hyperparams=None):
         BaseStep.__init__(
             self,
             savers=[TensorflowV2StepSaver()],
             hyperparams=hyperparams
         )
 
-        if checkpoint_folder is None:
-            checkpoint_folder = 'tensorflow_ckpts'
-        self.checkpoint_folder = checkpoint_folder
+        if tf_model_checkpoint_folder is None:
+            tf_model_checkpoint_folder = 'tensorflow_ckpts'
+        self.tf_model_checkpoint_folder = tf_model_checkpoint_folder
 
     def setup(self) -> BaseStep:
         """
@@ -60,7 +60,7 @@ class BaseTensorflowV2ModelStep(BaseStep):
         self.checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=self.optimizer, net=self.model)
         self.checkpoint_manager = tf.train.CheckpointManager(
             self.checkpoint,
-            self.checkpoint_folder,
+            self.tf_model_checkpoint_folder,
             max_to_keep=3
         )
 

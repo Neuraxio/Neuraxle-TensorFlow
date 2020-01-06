@@ -22,6 +22,8 @@ from abc import abstractmethod
 import tensorflow as tf
 from neuraxle.base import BaseSaver, BaseStep, ExecutionContext
 
+from neuraxle_tensorflow.tensorflow import BaseTensorflowModelStep
+
 
 class BaseTensorflowV1ModelStep(BaseStep):
     """
@@ -137,12 +139,24 @@ class BaseTensorflowV1ModelStep(BaseStep):
         :return: tensor
         :rtype: tf.Tensor
         """
+        if ":" in item:
+            split = item.split(":")
+            tensor_name = split[0]
+            device = split[1]
+        else:
+            tensor_name = item
+            device = "0"
+
         if item in self.tensorflow_props:
             return self.tensorflow_props[item]
 
         return self.graph.get_tensor_by_name(
-            "{0}/{1}:0".format(self.variable_scope, item)
+            "{0}/{1}:{2}".format(self.variable_scope, tensor_name, device)
         )
+
+class TensorflowV1ModelStep(BaseTensorflowModelStep):
+    def __init__(self):
+        pass
 
 
 class TensorflowV1StepSaver(BaseSaver):

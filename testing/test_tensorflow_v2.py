@@ -17,8 +17,8 @@ class LinearModel(tf.keras.Model):
 
 
 class Tensorflow2Model(BaseTensorflowV2ModelStep):
-    def __init__(self=None, checkpoint_folder=None, hyperparams=None):
-        BaseTensorflowV2ModelStep.__init__(self, checkpoint_folder=checkpoint_folder, hyperparams=hyperparams)
+    def __init__(self, tf_model_checkpoint_folder=None, hyperparams=None):
+        BaseTensorflowV2ModelStep.__init__(self, tf_model_checkpoint_folder=tf_model_checkpoint_folder, hyperparams=hyperparams)
 
     def create_optimizer(self):
         return tf.keras.optimizers.Adam(0.1)
