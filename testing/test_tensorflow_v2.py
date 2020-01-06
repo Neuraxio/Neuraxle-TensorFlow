@@ -1,10 +1,10 @@
 import os
 
 import tensorflow as tf
-from neuraxle.base import BaseStep, ExecutionContext
+from neuraxle.base import ExecutionContext
 from neuraxle.pipeline import Pipeline
 
-from neuraxle_tensorflow.tensorflow_v2 import BaseTensorflowV2ModelStep
+from neuraxle_tensorflow.tensorflow_v2 import Tensorflow2ModelStep
 
 
 class LinearModel(tf.keras.Model):
@@ -16,35 +16,6 @@ class LinearModel(tf.keras.Model):
         return self.l1(x)
 
 
-class Tensorflow2Model(BaseTensorflowV2ModelStep):
-    def __init__(self, tf_model_checkpoint_folder=None, hyperparams=None):
-        BaseTensorflowV2ModelStep.__init__(self, tf_model_checkpoint_folder=tf_model_checkpoint_folder, hyperparams=hyperparams)
-
-    def create_optimizer(self):
-        return tf.keras.optimizers.Adam(0.1)
-
-    def create_model(self):
-        return LinearModel()
-
-    def fit(self, data_inputs, expected_outputs=None) -> 'BaseStep':
-        x = tf.convert_to_tensor(data_inputs)
-        y = tf.convert_to_tensor(expected_outputs)
-
-        with tf.GradientTape() as tape:
-            output = self.model(x)
-            self.loss = tf.reduce_mean(tf.abs(output - y))
-
-        self.optimizer.apply_gradients(zip(
-            tape.gradient(self.loss, self.model.trainable_variables),
-            self.model.trainable_variables
-        ))
-
-        return self
-
-    def transform(self, data_inputs):
-        return self.model(tf.convert_to_tensor(data_inputs))
-
-
 def toy_dataset():
     inputs = tf.range(10.)[:, None]
     labels = inputs * 5. + tf.range(5.)[None, :]
@@ -52,25 +23,49 @@ def toy_dataset():
         dict(x=inputs, y=labels)).repeat(10).batch(2)
 
 
+def create_model(step: Tensorflow2ModelStep):
+    return LinearModel()
+
+
+def create_optimizer(step: Tensorflow2ModelStep):
+    return tf.keras.optimizers.Adam(0.1)
+
+
+def create_loss(step: Tensorflow2ModelStep, expected_outputs, actual_outputs):
+    return tf.reduce_mean(tf.abs(actual_outputs - expected_outputs))
+
+
 def test_tensorflowv2_saver(tmpdir):
-    model = Pipeline([
-        Tensorflow2Model(os.path.join(tmpdir, 'tf_checkpoints'))
-    ])
     dataset = toy_dataset()
+    model = Pipeline([
+        create_model_step(tmpdir)
+    ])
     loss_first_fit = evaluate_model_on_dataset(model, dataset)
 
     model.save(ExecutionContext(root=tmpdir))
 
     loaded = Pipeline([
-        Tensorflow2Model(os.path.join(tmpdir, 'tf_checkpoints'))
+        create_model_step(tmpdir)
     ]).load(ExecutionContext(root=tmpdir))
     loss_second_fit = evaluate_model_on_dataset(loaded, dataset)
+
     assert loss_second_fit < (loss_first_fit / 2)
+
+
+def create_model_step(tmpdir):
+    return Tensorflow2ModelStep(
+        create_model=create_model,
+        create_optimizer=create_optimizer,
+        create_loss=create_loss,
+        tf_model_checkpoint_folder=os.path.join(tmpdir, 'tf_checkpoints')
+    )
 
 
 def evaluate_model_on_dataset(model, dataset):
     loss = []
     for example in dataset:
-        model, outputs = model.fit_transform(example['x'].numpy(), example['y'].numpy())
-        loss.append(model['Tensorflow2Model'].loss.numpy())
+        expected_outputs = example['y'].numpy()
+        model, outputs = model.fit_transform(example['x'].numpy(), expected_outputs)
+        loss.append(((outputs - expected_outputs) ** 2).mean())
+
     return sum(loss)

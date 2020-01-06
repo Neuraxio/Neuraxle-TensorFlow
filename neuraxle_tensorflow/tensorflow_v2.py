@@ -16,13 +16,15 @@ Neuraxle utility classes for tensorflow v2.
     limitations under the License.
 
 """
-from abc import abstractmethod
 
-from neuraxle.base import BaseSaver, BaseStep, ExecutionContext
 import tensorflow as tf
+from neuraxle.base import BaseSaver, BaseStep, ExecutionContext
+from neuraxle.hyperparams.space import HyperparameterSamples, HyperparameterSpace
+
+from neuraxle_tensorflow.tensorflow import BaseTensorflowModelStep
 
 
-class BaseTensorflowV2ModelStep(BaseStep):
+class Tensorflow2ModelStep(BaseTensorflowModelStep):
     """
     Base class for tensorflow 2 steps.
     It uses :class:`TensorflowV2StepSaver` for saving the model.
@@ -31,12 +33,22 @@ class BaseTensorflowV2ModelStep(BaseStep):
         `Using the checkpoint model format <https://www.tensorflow.org/guide/checkpoint>`_,
         :class:`~neuraxle.base.BaseStep`
     """
+    HYPERPARAMS = HyperparameterSamples({})
+    HYPERPARAMS_SPACE = HyperparameterSpace({})
 
-    def __init__(self, tf_model_checkpoint_folder=None, hyperparams=None):
-        BaseStep.__init__(
+    def __init__(
             self,
-            savers=[TensorflowV2StepSaver()],
-            hyperparams=hyperparams
+            create_model,
+            create_loss,
+            create_optimizer,
+            tf_model_checkpoint_folder=None
+    ):
+        BaseTensorflowModelStep.__init__(
+            self,
+            create_model=create_model,
+            create_loss=create_loss,
+            create_optimizer=create_optimizer,
+            step_saver=TensorflowV2StepSaver()
         )
 
         if tf_model_checkpoint_folder is None:
@@ -53,8 +65,8 @@ class BaseTensorflowV2ModelStep(BaseStep):
         if self.is_initialized:
             return self
 
-        self.optimizer = self.create_optimizer()
-        self.model = self.create_model()
+        self.optimizer = self.create_optimizer(self)
+        self.model = self.create_model(self)
 
         self.checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=self.optimizer, net=self.model)
         self.checkpoint_manager = tf.train.CheckpointManager(
@@ -78,24 +90,23 @@ class BaseTensorflowV2ModelStep(BaseStep):
         self.checkpoint = None
         self.checkpoint_manager = None
 
-    @abstractmethod
-    def create_optimizer(self):
-        """
-        Create the tensorflow 2 optimizer to apply gradients.
+    def fit(self, data_inputs, expected_outputs=None) -> 'BaseStep':
+        x = tf.convert_to_tensor(data_inputs)
+        y = tf.convert_to_tensor(expected_outputs)
 
-        :return: tensorflow optimizer v2
-        :rtype: optimizer_v2.OptimizerV2
-        """
-        raise NotImplementedError()
+        with tf.GradientTape() as tape:
+            output = self.model(x)
+            self.loss = self.create_loss(self, y, output)
 
-    @abstractmethod
-    def create_model(self) -> tf.keras.Model:
-        """
-        Create the Tensorflow 2 Model to apply gradients.
+        self.optimizer.apply_gradients(zip(
+            tape.gradient(self.loss, self.model.trainable_variables),
+            self.model.trainable_variables
+        ))
 
-        :return:
-        """
-        raise NotImplementedError()
+        return self
+
+    def transform(self, data_inputs):
+        return self.model(tf.convert_to_tensor(data_inputs)).numpy()
 
 
 class TensorflowV2StepSaver(BaseSaver):
@@ -108,7 +119,7 @@ class TensorflowV2StepSaver(BaseSaver):
         :class:`~neuraxle.base.BaseSaver`
     """
 
-    def save_step(self, step: 'BaseTensorflowV2ModelStep', context: 'ExecutionContext') -> 'BaseStep':
+    def save_step(self, step: 'Tensorflow2ModelStep', context: 'ExecutionContext') -> 'BaseStep':
         """
         Save a step that is using tf.train.Saver().
 
@@ -122,7 +133,7 @@ class TensorflowV2StepSaver(BaseSaver):
         step.strip()
         return step
 
-    def load_step(self, step: 'BaseTensorflowV2ModelStep', context: 'ExecutionContext') -> 'BaseStep':
+    def load_step(self, step: 'Tensorflow2ModelStep', context: 'ExecutionContext') -> 'BaseStep':
         """
         Load a step that is using tensorflow using tf.train.Checkpoint().
 
@@ -137,7 +148,7 @@ class TensorflowV2StepSaver(BaseSaver):
         step.checkpoint.restore(step.checkpoint_manager.latest_checkpoint)
         return step
 
-    def can_load(self, step: 'BaseTensorflowV2ModelStep', context: 'ExecutionContext') -> bool:
+    def can_load(self, step: 'Tensorflow2ModelStep', context: 'ExecutionContext') -> bool:
         """
         Returns whether or not we can load.
 

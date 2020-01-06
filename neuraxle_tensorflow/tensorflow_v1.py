@@ -39,7 +39,7 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
 
     def __init__(
             self,
-            create_graph,
+            create_grah,
             create_loss,
             create_optimizer,
             variable_scope=None,
@@ -47,7 +47,7 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
     ):
         BaseTensorflowModelStep.__init__(
             self,
-            create_graph=create_graph,
+            create_model=create_grah,
             create_loss=create_loss,
             create_optimizer=create_optimizer,
             step_saver=TensorflowV1StepSaver()
@@ -73,7 +73,7 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
             with tf.variable_scope(self.variable_scope, reuse=tf.AUTO_REUSE):
                 self.session = tf.Session(config=tf.ConfigProto(log_device_placement=True), graph=self.graph)
 
-                self.create_graph(self)
+                self.create_model(self)
                 tf.identity(self.create_loss(self), name='loss')
                 self.create_optimizer(self).minimize(self['loss'], name='optimizer')
 
@@ -118,13 +118,16 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
         :return: fitted self
         :rtype: BaseStep
         """
-        self.session.run(
-            self['optimizer'],
-            feed_dict={
-                self['data_inputs']: data_inputs,
+        feed_dict = {
+            self['data_inputs']: data_inputs
+        }
+
+        if self.has_expected_outputs:
+            feed_dict.update({
                 self['expected_outputs']: expected_outputs
-            }
-        )
+            })
+
+        self.session.run(self['optimizer'], feed_dict=feed_dict)
         return self
 
     def transform(self, data_inputs, expected_outputs=None) -> 'BaseStep':

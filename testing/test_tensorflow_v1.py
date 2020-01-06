@@ -49,7 +49,7 @@ def test_tensorflowv1_saver(tmpdir):
 
 def create_model_step():
     return TensorflowV1ModelStep(
-        create_graph=create_graph,
+        create_grah=create_graph,
         create_loss=create_loss,
         create_optimizer=create_optimizer,
         has_expected_outputs=False

@@ -2,8 +2,8 @@ from neuraxle.base import BaseStep
 
 
 class BaseTensorflowModelStep(BaseStep):
-    def __init__(self, create_graph, create_loss, create_optimizer, step_saver):
-        self.create_graph = create_graph
+    def __init__(self, create_model, create_loss, create_optimizer, step_saver):
+        self.create_model = create_model
         self.create_loss = create_loss
         self.create_optimizer = create_optimizer
 
