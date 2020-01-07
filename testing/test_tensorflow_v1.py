@@ -49,10 +49,10 @@ def test_tensorflowv1_saver(tmpdir):
 
 def create_model_step():
     return TensorflowV1ModelStep(
-        create_grah=create_graph,
+        create_graph=create_graph,
         create_loss=create_loss,
         create_optimizer=create_optimizer,
-        has_expected_outputs=False
+        has_expected_outputs=True
     ).set_hyperparams(HyperparameterSamples({
         'learning_rate': 0.01
     })).set_hyperparams_space(HyperparameterSpace({

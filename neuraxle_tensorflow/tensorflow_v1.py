@@ -39,15 +39,15 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
 
     def __init__(
             self,
-            create_grah,
+            create_graph,
             create_loss,
             create_optimizer,
             variable_scope=None,
-            has_expected_outputs=False,
+            has_expected_outputs=True,
     ):
         BaseTensorflowModelStep.__init__(
             self,
-            create_model=create_grah,
+            create_model=create_graph,
             create_loss=create_loss,
             create_optimizer=create_optimizer,
             step_saver=TensorflowV1StepSaver()
@@ -73,7 +73,7 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
             with tf.variable_scope(self.variable_scope, reuse=tf.AUTO_REUSE):
                 self.session = tf.Session(config=tf.ConfigProto(log_device_placement=True), graph=self.graph)
 
-                self.create_model(self)
+                tf.identity(self.create_model(self), name='output')
                 tf.identity(self.create_loss(self), name='loss')
                 self.create_optimizer(self).minimize(self['loss'], name='optimizer')
 
@@ -127,7 +127,9 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
                 self['expected_outputs']: expected_outputs
             })
 
-        self.session.run(self['optimizer'], feed_dict=feed_dict)
+        results = self.session.run([self['optimizer'], self['loss']], feed_dict=feed_dict)
+        self.loss = results[1]
+
         return self
 
     def transform(self, data_inputs, expected_outputs=None) -> 'BaseStep':
