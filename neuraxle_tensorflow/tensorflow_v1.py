@@ -42,6 +42,7 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
             create_graph,
             create_loss,
             create_optimizer,
+            create_feed_dict=None,
             variable_scope=None,
             has_expected_outputs=True,
     ):
@@ -57,6 +58,7 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
             variable_scope = self.name
         self.variable_scope = variable_scope
         self.has_expected_outputs = has_expected_outputs
+        self.create_feed_dict = create_feed_dict
 
     def setup(self) -> BaseStep:
         """
@@ -73,7 +75,13 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
             with tf.variable_scope(self.variable_scope, reuse=tf.AUTO_REUSE):
                 self.session = tf.Session(config=tf.ConfigProto(log_device_placement=True), graph=self.graph)
 
-                tf.identity(self.create_model(self), name='output')
+                model = self.create_model(self)
+                if not isinstance(model, tuple):
+                    tf.identity(model, name='output')
+                else:
+                    tf.identity(model[0], name='output')
+                    tf.identity(model[1], name='inference_output')
+
                 tf.identity(self.create_loss(self), name='loss')
                 self.create_optimizer(self).minimize(self['loss'], name='optimizer')
 
@@ -127,6 +135,10 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
                 self['expected_outputs']: expected_outputs
             })
 
+        if self.create_feed_dict is not None:
+            additional_feed_dict_arguments = self.create_feed_dict(self, data_inputs, expected_outputs)
+            feed_dict.update(additional_feed_dict_arguments)
+
         results = self.session.run([self['optimizer'], self['loss']], feed_dict=feed_dict)
         self.loss = results[1]
 
@@ -143,12 +155,17 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
         :param data_inputs:
         :return:
         """
-        return self.session.run(
-            self['output'],
-            feed_dict={
-                self['data_inputs']: data_inputs
-            }
-        )
+        inference_output_name = 'output'
+        if len(self['inference_output'].get_shape().as_list()) > 0:
+            inference_output_name = 'inference_output'
+
+        feed_dict = {
+            self['data_inputs']: data_inputs
+        }
+
+        results = self.session.run(self[inference_output_name], feed_dict=feed_dict)
+
+        return results
 
     def __getitem__(self, item):
         """
@@ -171,7 +188,13 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
         try:
             result = self.graph.get_tensor_by_name("{0}/{1}:{2}".format(self.variable_scope, tensor_name, device))
         except KeyError:
-            result = self.graph.get_operation_by_name("{0}/{1}".format(self.variable_scope, tensor_name))
+            result = None
+
+        if result is None:
+            try:
+                result = self.graph.get_operation_by_name("{0}/{1}".format(self.variable_scope, tensor_name))
+            except KeyError:
+                result = tf.get_variable(tensor_name, [])
 
         return result
 
