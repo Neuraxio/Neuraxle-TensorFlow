@@ -45,6 +45,8 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
             create_feed_dict=None,
             variable_scope=None,
             has_expected_outputs=True,
+            print_loss=False,
+            print_func=None
     ):
         BaseTensorflowModelStep.__init__(
             self,
@@ -59,6 +61,11 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
         self.variable_scope = variable_scope
         self.has_expected_outputs = has_expected_outputs
         self.create_feed_dict = create_feed_dict
+        self.loss = []
+        self.print_loss = print_loss
+        if print_func is None:
+            print_func = print
+        self.print_func = print_func
 
     def setup(self) -> BaseStep:
         """
@@ -140,7 +147,9 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
             feed_dict.update(additional_feed_dict_arguments)
 
         results = self.session.run([self['optimizer'], self['loss']], feed_dict=feed_dict)
-        self.loss = results[1]
+        self.loss.append(results[1])
+        if self.print_loss:
+            self.print_func(self.loss[-1])
 
         return self
 
