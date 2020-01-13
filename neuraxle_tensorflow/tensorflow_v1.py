@@ -61,7 +61,7 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
         self.variable_scope = variable_scope
         self.has_expected_outputs = has_expected_outputs
         self.create_feed_dict = create_feed_dict
-        self.loss = []
+        self.losses = []
         self.print_loss = print_loss
         if print_func is None:
             print_func = print
@@ -147,9 +147,9 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
             feed_dict.update(additional_feed_dict_arguments)
 
         results = self.session.run([self['optimizer'], self['loss']], feed_dict=feed_dict)
-        self.loss.append(results[1])
+        self.losses.append(results[1])
         if self.print_loss:
-            self.print_func(self.loss[-1])
+            self.print_func(self.losses[-1])
 
         return self
 
@@ -164,9 +164,7 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
         :param data_inputs:
         :return:
         """
-        inference_output_name = 'output'
-        if len(self['inference_output'].get_shape().as_list()) > 0:
-            inference_output_name = 'inference_output'
+        inference_output_name = self._get_inference_output_name()
 
         feed_dict = {
             self['data_inputs']: data_inputs
@@ -175,6 +173,19 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
         results = self.session.run(self[inference_output_name], feed_dict=feed_dict)
 
         return results
+
+    def _get_inference_output_name(self):
+        """
+        Return the output tensor name for inference (transform).
+        In create_graph, the user can return a tuple of two elements : the output tensor for training, and the output tensor for inference.
+
+        :return:
+        """
+        inference_output_name = 'output'
+        if len(self['inference_output'].get_shape().as_list()) > 0:
+            inference_output_name = 'inference_output'
+
+        return inference_output_name
 
     def __getitem__(self, item):
         """

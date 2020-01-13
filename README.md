@@ -19,8 +19,19 @@ def create_graph(step: TensorflowV1ModelStep):
 
     tf.Variable(np.random.rand(), name='weight')
     tf.Variable(np.random.rand(), name='bias')
+    
+    return tf.add(tf.multiply(step['data_inputs'], step['weight']), step['bias'])
+    
+"""
+# Note: you can also return a tuple containing two elements : tensor for training (fit), tensor for inference (transform)
+def create_graph(step: TensorflowV1ModelStep)
+    # ...
+    decoder_outputs_training = create_training_decoder(step, encoder_state, decoder_cell)
+    decoder_outputs_inference = create_inference_decoder(step, encoder_state, decoder_cell)
 
-    tf.add(tf.multiply(step['data_inputs'], step['weight']), step['bias'], name='output')
+    return decoder_outputs_training, decoder_outputs_inference
+"""
+
 
 def create_loss(step: TensorflowV1ModelStep):
     return tf.reduce_sum(tf.pow(step['output'] - step['expected_outputs'], 2)) / (2 * N_SAMPLES)
@@ -32,7 +43,7 @@ model_step = TensorflowV1ModelStep(
     create_grah=create_graph,
     create_loss=create_loss,
     create_optimizer=create_optimizer,
-    has_expected_outputs=False
+    has_expected_outputs=True
 ).set_hyperparams(HyperparameterSamples({
     'learning_rate': 0.01
 })).set_hyperparams_space(HyperparameterSpace({
@@ -51,8 +62,8 @@ def create_model(step: Tensorflow2ModelStep):
 def create_optimizer(step: Tensorflow2ModelStep):
     return tf.keras.optimizers.Adam(0.1)
 
-def create_loss(step: Tensorflow2ModelStep, expected_outputs, actual_outputs):
-    return tf.reduce_mean(tf.abs(actual_outputs - expected_outputs))
+def create_loss(step: Tensorflow2ModelStep, expected_outputs, predicted_outputs):
+    return tf.reduce_mean(tf.abs(predicted_outputs - expected_outputs))
 
 model_step = Tensorflow2ModelStep(
     create_model=create_model,
