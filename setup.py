@@ -19,7 +19,7 @@ Neuraxle utility classes for tensorflow.
 
 from setuptools import setup, find_packages
 
-from neuraxle import __version__ as _VERSION
+from neuraxle_tensorflow import __version__ as _VERSION
 
 with open('README.md') as _f:
     _README = _f.read()
@@ -29,6 +29,7 @@ setup(
     version=_VERSION,
     description='TensorFlow steps, savers, and utilities for Neuraxle. Neuraxle is a Machine Learning (ML) library for building neat pipelines, providing the right '
                 'abstractions to both ease research, development, and deployment of your ML applications.',
+    long_description_content_type='text/markdown',
     long_description=_README,
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -79,16 +80,16 @@ setup(
         "Topic :: Utilities",
         "Typing :: Typed"
     ],
-    url='https://github.com/Neuraxio/Neuraxle',
-    download_url='https://github.com/Neuraxio/Neuraxle/tarball/{}'.format(
+    url='https://github.com/Neuraxio/Neuraxle-Tensorflow',
+    download_url='https://github.com/Neuraxio/Neuraxle-Tensorflow/tarball/{}'.format(
         _VERSION),
     author='Neuraxio Inc.',
     author_email='guillaume.chevalier@neuraxio.com',
-    packages=find_packages(include=['neuraxle-tensorflow*']),
+    packages=find_packages(include=['neuraxle_tensorflow*']),
     test_suite="testing",
     setup_requires=["pytest-runner"],
     install_requires=[
-        'neuraxle>=0.2.1'
+        'neuraxle>=0.3.0'
     ],
     tests_require=["pytest", "pytest-cov"],
     include_package_data=True,
