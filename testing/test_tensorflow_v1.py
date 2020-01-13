@@ -19,7 +19,7 @@ def create_graph(step: TensorflowV1ModelStep):
     tf.Variable(np.random.rand(), name='weight')
     tf.Variable(np.random.rand(), name='bias')
 
-    tf.add(tf.multiply(step['data_inputs'], step['weight']), step['bias'], name='output')
+    return tf.add(tf.multiply(step['data_inputs'], step['weight']), step['bias'])
 
 
 def create_loss(step: TensorflowV1ModelStep):
