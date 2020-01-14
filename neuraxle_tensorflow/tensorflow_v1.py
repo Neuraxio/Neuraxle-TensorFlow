@@ -43,6 +43,8 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
             create_loss,
             create_optimizer,
             create_feed_dict=None,
+            data_inputs_dtype=None,
+            expected_outputs_dtype=None,
             variable_scope=None,
             has_expected_outputs=True,
             print_loss=False,
@@ -53,6 +55,9 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
             create_model=create_graph,
             create_loss=create_loss,
             create_optimizer=create_optimizer,
+            create_inputs=create_feed_dict,
+            data_inputs_dtype=data_inputs_dtype,
+            expected_outputs_dtype=expected_outputs_dtype,
             step_saver=TensorflowV1StepSaver()
         )
 
@@ -61,6 +66,7 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
         self.variable_scope = variable_scope
         self.has_expected_outputs = has_expected_outputs
         self.create_feed_dict = create_feed_dict
+
         self.losses = []
         self.print_loss = print_loss
         if print_func is None:
@@ -142,14 +148,14 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
                 self['expected_outputs']: expected_outputs
             })
 
-        if self.create_feed_dict is not None:
-            additional_feed_dict_arguments = self.create_feed_dict(self, data_inputs, expected_outputs)
+        if self.create_inputs is not None:
+            additional_feed_dict_arguments = self.create_inputs(self, data_inputs, expected_outputs)
             feed_dict.update(additional_feed_dict_arguments)
 
         results = self.session.run([self['optimizer'], self['loss']], feed_dict=feed_dict)
         self.losses.append(results[1])
         if self.print_loss:
-            self.print_func(self.losses[-1])
+            self.print_func('Loss: {}'.format(self.losses[-1]))
 
         return self
 

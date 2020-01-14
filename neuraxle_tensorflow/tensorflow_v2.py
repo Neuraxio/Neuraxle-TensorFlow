@@ -16,7 +16,6 @@ Neuraxle utility classes for tensorflow v2.
     limitations under the License.
 
 """
-
 import tensorflow as tf
 from neuraxle.base import BaseSaver, BaseStep, ExecutionContext
 from neuraxle.hyperparams.space import HyperparameterSamples, HyperparameterSpace
@@ -41,6 +40,9 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
             create_model,
             create_loss,
             create_optimizer,
+            create_inputs=None,
+            data_inputs_dtype=None,
+            expected_outputs_dtype=None,
             tf_model_checkpoint_folder=None
     ):
         BaseTensorflowModelStep.__init__(
@@ -48,12 +50,16 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
             create_model=create_model,
             create_loss=create_loss,
             create_optimizer=create_optimizer,
+            create_inputs=create_inputs,
+            data_inputs_dtype=data_inputs_dtype,
+            expected_outputs_dtype=expected_outputs_dtype,
             step_saver=TensorflowV2StepSaver()
         )
 
         if tf_model_checkpoint_folder is None:
             tf_model_checkpoint_folder = 'tensorflow_ckpts'
         self.tf_model_checkpoint_folder = tf_model_checkpoint_folder
+        self.losses = []
 
     def setup(self) -> BaseStep:
         """
@@ -91,22 +97,34 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
         self.checkpoint_manager = None
 
     def fit(self, data_inputs, expected_outputs=None) -> 'BaseStep':
-        x = tf.convert_to_tensor(data_inputs)
-        y = tf.convert_to_tensor(expected_outputs)
+        inputs = self._create_inputs(data_inputs, expected_outputs)
 
         with tf.GradientTape() as tape:
-            output = self.model(x)
-            self.loss = self.create_loss(self, y, output)
+            output = self.model(inputs, training=True)
+            loss = self.create_loss(
+                self,
+                expected_outputs=tf.convert_to_tensor(expected_outputs, dtype=self.expected_outputs_dtype),
+                predicted_outputs=output
+            )
+            self.losses.append(loss)
+            self.model.losses.append(loss)
 
         self.optimizer.apply_gradients(zip(
-            tape.gradient(self.loss, self.model.trainable_variables),
+            tape.gradient(loss, self.model.trainable_variables),
             self.model.trainable_variables
         ))
 
         return self
 
     def transform(self, data_inputs):
-        return self.model(tf.convert_to_tensor(data_inputs)).numpy()
+        return self.model(self._create_inputs(data_inputs), training=False).numpy()
+
+    def _create_inputs(self, data_inputs, expected_outputs=None):
+        if self.create_inputs is not None:
+            inputs = self.create_inputs(self, data_inputs, expected_outputs)
+        else:
+            inputs = tf.convert_to_tensor(data_inputs, self.data_inputs_dtype)
+        return inputs
 
 
 class TensorflowV2StepSaver(BaseSaver):
