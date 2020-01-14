@@ -172,9 +172,10 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
             self['data_inputs']: data_inputs
         }
 
-        results = self.session.run(self[inference_output_name], feed_dict=feed_dict)
+        results = self.session.run([self[inference_output_name], self['loss']], feed_dict=feed_dict)
+        self.add_new_loss(results[1], test_only=True)
 
-        return results
+        return results[0]
 
     def _get_inference_output_name(self):
         """

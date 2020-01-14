@@ -38,11 +38,15 @@ class BaseTensorflowModelStep(BaseStep):
             hyperparams=self.HYPERPARAMS
         )
 
-    def add_new_loss(self, loss):
+    def add_new_loss(self, loss, test_only=False):
+        if test_only:
+            if not self.is_train:
+                self.test_losses.append(loss)
+            else:
+                return
+
         if self.is_train:
             self.train_losses.append(loss)
-        else:
-            self.test_losses.append(loss)
 
         if self.print_loss:
             self.print_func('{} Loss: {}'.format('Train' if self.is_train else 'Test', loss))

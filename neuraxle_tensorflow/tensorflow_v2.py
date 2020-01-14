@@ -18,6 +18,7 @@ Neuraxle utility classes for tensorflow v2.
 """
 import tensorflow as tf
 from neuraxle.base import BaseSaver, BaseStep, ExecutionContext
+from neuraxle.data_container import DataContainer
 from neuraxle.hyperparams.space import HyperparameterSamples, HyperparameterSpace
 
 from neuraxle_tensorflow.tensorflow import BaseTensorflowModelStep
@@ -111,6 +112,7 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
             )
 
             self.add_new_loss(loss)
+            self.model.losses.append(loss)
 
         self.optimizer.apply_gradients(zip(
             tape.gradient(loss, self.model.trainable_variables),
@@ -118,6 +120,17 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
         ))
 
         return self
+
+    def _transform_data_container(self, data_container: DataContainer, context: ExecutionContext) -> DataContainer:
+        output = self.model(data_container.data_inputs, training=False)
+        loss = self.create_loss(
+            self,
+            expected_outputs=tf.convert_to_tensor(data_container.expected_outputs, dtype=self.expected_outputs_dtype),
+            predicted_outputs=output
+        )
+        self.add_new_loss(loss, test_only=True)
+
+        return output.numpy()
 
     def transform(self, data_inputs):
         return self.model(self._create_inputs(data_inputs), training=False).numpy()
