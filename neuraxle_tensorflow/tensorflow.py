@@ -10,7 +10,9 @@ class BaseTensorflowModelStep(BaseStep):
             step_saver,
             create_inputs=None,
             data_inputs_dtype=None,
-            expected_outputs_dtype=None
+            expected_outputs_dtype=None,
+            print_loss=False,
+            print_func=None
     ):
         self.create_inputs = create_inputs
         self.create_model = create_model
@@ -23,8 +25,24 @@ class BaseTensorflowModelStep(BaseStep):
         self.set_hyperparams(self.__class__.HYPERPARAMS)
         self.set_hyperparams_space(self.__class__.HYPERPARAMS_SPACE)
 
+        self.train_losses = []
+        self.test_losses = []
+        self.print_loss = print_loss
+        if print_func is None:
+            print_func = print
+        self.print_func = print_func
+
         BaseStep.__init__(
             self,
             savers=[step_saver],
             hyperparams=self.HYPERPARAMS
         )
+
+    def add_new_loss(self, loss):
+        if self.is_train:
+            self.train_losses.append(loss)
+        else:
+            self.test_losses.append(loss)
+
+        if self.print_loss:
+            self.print_func('{} Loss: {}'.format('Train' if self.is_train else 'Test', loss))

@@ -43,7 +43,9 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
             create_inputs=None,
             data_inputs_dtype=None,
             expected_outputs_dtype=None,
-            tf_model_checkpoint_folder=None
+            tf_model_checkpoint_folder=None,
+            print_loss=False,
+            print_func=None
     ):
         BaseTensorflowModelStep.__init__(
             self,
@@ -53,13 +55,14 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
             create_inputs=create_inputs,
             data_inputs_dtype=data_inputs_dtype,
             expected_outputs_dtype=expected_outputs_dtype,
-            step_saver=TensorflowV2StepSaver()
+            step_saver=TensorflowV2StepSaver(),
+            print_loss=print_loss,
+            print_func=print_func
         )
 
         if tf_model_checkpoint_folder is None:
             tf_model_checkpoint_folder = 'tensorflow_ckpts'
         self.tf_model_checkpoint_folder = tf_model_checkpoint_folder
-        self.losses = []
 
     def setup(self) -> BaseStep:
         """
@@ -106,7 +109,8 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
                 expected_outputs=tf.convert_to_tensor(expected_outputs, dtype=self.expected_outputs_dtype),
                 predicted_outputs=output
             )
-            self.losses.append(loss)
+
+            self.add_new_loss(loss)
             self.model.losses.append(loss)
 
         self.optimizer.apply_gradients(zip(
