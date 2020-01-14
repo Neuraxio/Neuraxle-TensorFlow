@@ -122,7 +122,7 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
         return self
 
     def _transform_data_container(self, data_container: DataContainer, context: ExecutionContext) -> DataContainer:
-        output = self.model(data_container.data_inputs, training=False)
+        output = self.model(self._create_inputs(data_container.data_inputs), training=False)
         loss = self.create_loss(
             self,
             expected_outputs=tf.convert_to_tensor(data_container.expected_outputs, dtype=self.expected_outputs_dtype),
@@ -131,9 +131,6 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
         self.add_new_loss(loss, test_only=True)
 
         return output.numpy()
-
-    def transform(self, data_inputs):
-        return self.model(self._create_inputs(data_inputs), training=False).numpy()
 
     def _create_inputs(self, data_inputs, expected_outputs=None):
         if self.create_inputs is not None:
