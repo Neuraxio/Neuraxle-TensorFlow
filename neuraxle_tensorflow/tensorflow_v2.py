@@ -111,7 +111,6 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
             )
 
             self.add_new_loss(loss)
-            self.model.losses.append(loss)
 
         self.optimizer.apply_gradients(zip(
             tape.gradient(loss, self.model.trainable_variables),
