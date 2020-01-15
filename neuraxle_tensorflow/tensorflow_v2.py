@@ -46,7 +46,8 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
             expected_outputs_dtype=None,
             tf_model_checkpoint_folder=None,
             print_loss=False,
-            print_func=None
+            print_func=None,
+            device_name=None
     ):
         BaseTensorflowModelStep.__init__(
             self,
@@ -60,6 +61,10 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
             print_loss=print_loss,
             print_func=print_func
         )
+
+        if device_name is None:
+            device_name = '/CPU:0'
+        self.device_name = device_name
 
         if tf_model_checkpoint_folder is None:
             tf_model_checkpoint_folder = 'tensorflow_ckpts'
@@ -75,15 +80,16 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
         if self.is_initialized:
             return self
 
-        self.optimizer = self.create_optimizer(self)
-        self.model = self.create_model(self)
+        with tf.device(self.device_name):
+            self.optimizer = self.create_optimizer(self)
+            self.model = self.create_model(self)
 
-        self.checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=self.optimizer, net=self.model)
-        self.checkpoint_manager = tf.train.CheckpointManager(
-            self.checkpoint,
-            self.tf_model_checkpoint_folder,
-            max_to_keep=3
-        )
+            self.checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=self.optimizer, net=self.model)
+            self.checkpoint_manager = tf.train.CheckpointManager(
+                self.checkpoint,
+                self.tf_model_checkpoint_folder,
+                max_to_keep=3
+            )
 
         self.is_initialized = True
 
@@ -101,8 +107,13 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
         self.checkpoint_manager = None
 
     def fit(self, data_inputs, expected_outputs=None) -> 'BaseStep':
-        inputs = self._create_inputs(data_inputs, expected_outputs)
+        with tf.device(self.device_name):
+            self._fit_model(data_inputs, expected_outputs)
 
+        return self
+
+    def _fit_model(self, data_inputs, expected_outputs):
+        inputs = self._create_inputs(data_inputs, expected_outputs)
         with tf.GradientTape() as tape:
             output = self.model(inputs, training=True)
             loss = self.create_loss(
@@ -110,7 +121,6 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
                 expected_outputs=tf.convert_to_tensor(expected_outputs, dtype=self.expected_outputs_dtype),
                 predicted_outputs=output
             )
-
             self.add_new_loss(loss)
             self.model.losses.append(loss)
 
@@ -119,24 +129,31 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
             self.model.trainable_variables
         ))
 
-        return self
-
     def _transform_data_container(self, data_container: DataContainer, context: ExecutionContext) -> DataContainer:
-        output = self.model(self._create_inputs(data_container.data_inputs), training=False)
+        data_inputs = data_container.data_inputs
+        expected_outputs = data_container.data_inputs
 
-        if data_container.expected_outputs is not None:
-            loss = self.create_loss(
-                self,
-                expected_outputs=tf.convert_to_tensor(data_container.expected_outputs, dtype=self.expected_outputs_dtype),
-                predicted_outputs=output
-            )
-            self.add_new_loss(loss, test_only=True)
+        with tf.device(self.device_name):
+            output = self._transform_model(data_inputs, expected_outputs)
 
         data_container.set_data_inputs(output.numpy())
         return data_container
 
-    def transform(self, data_inputs):
+    def _transform_model(self, data_inputs, expected_outputs):
         output = self.model(self._create_inputs(data_inputs), training=False)
+
+        if expected_outputs is not None:
+            loss = self.create_loss(
+                self,
+                expected_outputs=tf.convert_to_tensor(expected_outputs, dtype=self.expected_outputs_dtype),
+                predicted_outputs=output
+            )
+            self.add_new_loss(loss, test_only=True)
+        return output
+
+    def transform(self, data_inputs):
+        with tf.device(self.device_name):
+            output = self.model(self._create_inputs(data_inputs), training=False)
         return output.numpy()
 
     def _create_inputs(self, data_inputs, expected_outputs=None):
