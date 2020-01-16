@@ -97,7 +97,6 @@ signal_prediction_pipeline = Pipeline([
     ForEachDataInput(MeanStdNormalizer()),
     ToNumpy(),
     Tensorflow2ModelStep(
-        # See: https://github.com/Neuraxio/Neuraxle-TensorFlow
         create_model=create_model,
         create_loss=create_loss,
         create_optimizer=create_optimizer,
