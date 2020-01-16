@@ -6,7 +6,7 @@ Neuraxle is a Machine Learning (ML) library for building neat pipelines, providi
 
 ## Usage example
 
-[See also a complete example](https://github.com/Neuraxio/LSTM-Human-Activity-Recognition/blob/neuraxle-refactor/steps/lstm_rnn_tensorflow_model_wrapper.py)
+[See also a complete example](https://github.com/guillaume-chevalier/seq2seq-signal-prediction)
 
 ### Tensorflow 1
 
@@ -71,4 +71,61 @@ model_step = Tensorflow2ModelStep(
     create_loss=create_loss,
     tf_model_checkpoint_folder=os.path.join(tmpdir, 'tf_checkpoints')
 )
+```
+
+### Deep Learning Pipeline
+
+```python
+
+    batch_size = 100
+    epochs = 3
+    validation_size = 0.15
+    max_plotted_validation_predictions = 10
+
+    seq2seq_pipeline_hyperparams = HyperparameterSamples({
+        'hidden_dim': 100,
+        'layers_stacked_count': 2,
+        'lambda_loss_amount': 0.0003,
+        'learning_rate': 0.006,
+        'window_size_future': sequence_length,
+        'output_dim': output_dim,
+        'input_dim': input_dim
+    })
+    feature_0_metric = metric_3d_to_2d_wrapper(mean_squared_error)
+    metrics = {'mse': feature_0_metric}
+
+    signal_prediction_pipeline = Pipeline([
+        ForEachDataInput(MeanStdNormalizer()),
+        ToNumpy(),
+        Tensorflow2ModelStep(
+            # See: https://github.com/Neuraxio/Neuraxle-TensorFlow
+            create_model=create_model,
+            create_loss=create_loss,
+            create_optimizer=create_optimizer,
+            expected_outputs_dtype=tf.dtypes.float32,
+            data_inputs_dtype=tf.dtypes.float32,
+            print_loss=True
+        ).set_hyperparams(seq2seq_pipeline_hyperparams)
+    ]).set_name('SignalPrediction')
+
+    pipeline = Pipeline([EpochRepeater(
+        ValidationSplitWrapper(
+            MetricsWrapper(Pipeline([
+                TrainOnlyWrapper(DataShuffler()),
+                MiniBatchSequentialPipeline([
+                    MetricsWrapper(
+                        signal_prediction_pipeline,
+                        metrics=metrics,
+                        name='batch_metrics'
+                    )
+                ], batch_size=batch_size)
+            ]), metrics=metrics,
+                name='epoch_metrics',
+                print_metrics=True
+            ),
+            test_size=validation_size,
+            scoring_function=feature_0_metric
+        ), epochs=epochs)])
+
+    pipeline, outputs = pipeline.fit_transform(data_inputs, expected_outputs)
 ```
