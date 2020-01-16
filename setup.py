@@ -89,7 +89,7 @@ setup(
     test_suite="testing",
     setup_requires=["pytest-runner"],
     install_requires=[
-        'neuraxle>=0.3.0'
+        'neuraxle>=0.3.1'
     ],
     tests_require=["pytest", "pytest-cov"],
     include_package_data=True,
