@@ -131,7 +131,7 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
 
     def _transform_data_container(self, data_container: DataContainer, context: ExecutionContext) -> DataContainer:
         data_inputs = data_container.data_inputs
-        expected_outputs = data_container.data_inputs
+        expected_outputs = data_container.expected_outputs
 
         with tf.device(self.device_name):
             output = self._transform_model(data_inputs, expected_outputs)
