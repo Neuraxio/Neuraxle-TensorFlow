@@ -31,8 +31,8 @@ def create_optimizer(step: Tensorflow2ModelStep):
     return tf.keras.optimizers.Adam(0.1)
 
 
-def create_loss(step: Tensorflow2ModelStep, expected_outputs, actual_outputs):
-    return tf.reduce_mean(tf.abs(actual_outputs - expected_outputs))
+def create_loss(step: Tensorflow2ModelStep, expected_outputs, predicted_outputs):
+    return tf.reduce_mean(tf.abs(predicted_outputs - expected_outputs))
 
 
 def test_tensorflowv2_saver(tmpdir):
@@ -49,7 +49,7 @@ def test_tensorflowv2_saver(tmpdir):
     ]).load(ExecutionContext(root=tmpdir))
     loss_second_fit = evaluate_model_on_dataset(loaded, dataset)
 
-    assert loss_second_fit < (loss_first_fit / 2)
+    assert loss_second_fit < loss_first_fit
 
 
 def create_model_step(tmpdir):

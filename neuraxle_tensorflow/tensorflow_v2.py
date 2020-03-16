@@ -184,6 +184,11 @@ class TensorflowV2StepSaver(BaseSaver):
         :type context: ExecutionContext
         :return: saved step
         """
+        step.checkpoint_manager = tf.train.CheckpointManager(
+            step.checkpoint,
+            context.get_path(),
+            max_to_keep=3
+        )
         step.checkpoint_manager.save()
         step.strip()
         return step
@@ -199,6 +204,11 @@ class TensorflowV2StepSaver(BaseSaver):
         :return: loaded step
         """
         step.is_initialized = False
+        step.checkpoint_manager = tf.train.CheckpointManager(
+            step.checkpoint,
+            context.get_path(),
+            max_to_keep=3
+        )
         step.setup()
         step.checkpoint.restore(step.checkpoint_manager.latest_checkpoint)
         return step
