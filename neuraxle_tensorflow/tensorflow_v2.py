@@ -44,7 +44,6 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
             create_inputs=None,
             data_inputs_dtype=None,
             expected_outputs_dtype=None,
-            tf_model_checkpoint_folder=None,
             print_loss=False,
             print_func=None,
             device_name=None
@@ -66,10 +65,6 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
             device_name = '/CPU:0'
         self.device_name = device_name
 
-        if tf_model_checkpoint_folder is None:
-            tf_model_checkpoint_folder = 'tensorflow_ckpts'
-        self.tf_model_checkpoint_folder = tf_model_checkpoint_folder
-
     def setup(self) -> BaseStep:
         """
         Setup optimizer, model, and checkpoints for saving.
@@ -83,13 +78,7 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
         with tf.device(self.device_name):
             self.optimizer = self.create_optimizer(self)
             self.model = self.create_model(self)
-
             self.checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=self.optimizer, net=self.model)
-            self.checkpoint_manager = tf.train.CheckpointManager(
-                self.checkpoint,
-                self.tf_model_checkpoint_folder,
-                max_to_keep=3
-            )
 
         self.is_initialized = True
 
@@ -104,7 +93,6 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
         self.optimizer = None
         self.model = None
         self.checkpoint = None
-        self.checkpoint_manager = None
 
     def fit(self, data_inputs, expected_outputs=None) -> 'BaseStep':
         with tf.device(self.device_name):
@@ -184,12 +172,12 @@ class TensorflowV2StepSaver(BaseSaver):
         :type context: ExecutionContext
         :return: saved step
         """
-        step.checkpoint_manager = tf.train.CheckpointManager(
+        checkpoint_manager = tf.train.CheckpointManager(
             step.checkpoint,
             context.get_path(),
             max_to_keep=3
         )
-        step.checkpoint_manager.save()
+        checkpoint_manager.save()
         step.strip()
         return step
 
@@ -204,13 +192,13 @@ class TensorflowV2StepSaver(BaseSaver):
         :return: loaded step
         """
         step.is_initialized = False
-        step.checkpoint_manager = tf.train.CheckpointManager(
+        checkpoint_manager = tf.train.CheckpointManager(
             step.checkpoint,
             context.get_path(),
             max_to_keep=3
         )
         step.setup()
-        step.checkpoint.restore(step.checkpoint_manager.latest_checkpoint)
+        step.checkpoint.restore(checkpoint_manager.latest_checkpoint)
         return step
 
     def can_load(self, step: 'Tensorflow2ModelStep', context: 'ExecutionContext') -> bool:

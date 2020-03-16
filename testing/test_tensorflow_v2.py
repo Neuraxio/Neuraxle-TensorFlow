@@ -56,8 +56,7 @@ def create_model_step(tmpdir):
     return Tensorflow2ModelStep(
         create_model=create_model,
         create_optimizer=create_optimizer,
-        create_loss=create_loss,
-        tf_model_checkpoint_folder=os.path.join(tmpdir, 'tf_checkpoints')
+        create_loss=create_loss
     )
 
 
