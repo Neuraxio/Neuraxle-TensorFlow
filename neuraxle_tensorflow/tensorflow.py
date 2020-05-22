@@ -36,16 +36,15 @@ class BaseTensorflowModelStep(BaseStep):
             print_func = print
         self.print_func = print_func
 
+    def add_new_loss(self, loss, test_only=False):
+        if test_only:
+            if not self.is_train:
+                self.test_losses.append(loss)
+            else:
+                return
 
-def add_new_loss(self, loss, test_only=False):
-    if test_only:
-        if not self.is_train:
-            self.test_losses.append(loss)
-        else:
-            return
+        if self.is_train:
+            self.train_losses.append(loss)
 
-    if self.is_train:
-        self.train_losses.append(loss)
-
-    if self.print_loss:
-        self.print_func('{} Loss: {}'.format('Train' if self.is_train else 'Test', loss))
+        if self.print_loss:
+            self.print_func('{} Loss: {}'.format('Train' if self.is_train else 'Test', loss))

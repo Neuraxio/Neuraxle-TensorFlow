@@ -1,1 +1,1 @@
--e git://github.com/Neuraxio/Neuraxle.git@master#egg=neuraxle
+neuraxle>=0.3.1
