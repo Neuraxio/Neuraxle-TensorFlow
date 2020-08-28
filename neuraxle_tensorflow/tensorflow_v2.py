@@ -70,7 +70,7 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
             tf_model_checkpoint_folder = 'tensorflow_ckpts'
         self.tf_model_checkpoint_folder = tf_model_checkpoint_folder
 
-    def setup(self) -> BaseStep:
+    def setup(self, context: ExecutionContext) -> BaseStep:
         """
         Setup optimizer, model, and checkpoints for saving.
 
