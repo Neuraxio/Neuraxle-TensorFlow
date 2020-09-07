@@ -69,7 +69,7 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
         self.has_expected_outputs = has_expected_outputs
         self.create_feed_dict = create_feed_dict
 
-    def setup(self) -> BaseStep:
+    def setup(self, context: ExecutionContext) -> BaseStep:
         """
         Setup tensorflow 1 graph, and session using a variable scope.
 
@@ -84,7 +84,7 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
             with tf.variable_scope(self.variable_scope, reuse=tf.AUTO_REUSE):
                 self.session = tf.Session(config=tf.ConfigProto(log_device_placement=True), graph=self.graph)
 
-                model = self.create_model(self)
+                model = self.create_model(self, context)
                 if not isinstance(model, tuple):
                     tf.identity(model, name='output')
                 else:
@@ -92,7 +92,7 @@ class TensorflowV1ModelStep(BaseTensorflowModelStep):
                     tf.identity(model[1], name='inference_output')
 
                 tf.identity(self.create_loss(self), name='loss')
-                self.create_optimizer(self).minimize(self['loss'], name='optimizer')
+                self.create_optimizer(self, context).minimize(self['loss'], name='optimizer')
 
                 init = tf.global_variables_initializer()
                 self.session.run(init)
@@ -258,7 +258,7 @@ class TensorflowV1StepSaver(BaseSaver):
         :return: loaded step
         """
         step.is_initialized = False
-        step.setup()
+        step.setup(context)
 
         with step.graph.as_default():
             saver = tf.train.Saver()

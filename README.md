@@ -13,7 +13,7 @@ Neuraxle is a Machine Learning (ML) library for building neat pipelines, providi
 Create a tensorflow 1 model step by giving it a graph, an optimizer, and a loss function. 
 
 ```python
-def create_graph(step: TensorflowV1ModelStep):
+def create_graph(step: TensorflowV1ModelStep, context: ExecutionContext):
     tf.placeholder('float', name='data_inputs')
     tf.placeholder('float', name='expected_outputs')
 
@@ -24,7 +24,7 @@ def create_graph(step: TensorflowV1ModelStep):
     
 """
 # Note: you can also return a tuple containing two elements : tensor for training (fit), tensor for inference (transform)
-def create_graph(step: TensorflowV1ModelStep)
+def create_graph(step: TensorflowV1ModelStep, context: ExecutionContext)
     # ...
     decoder_outputs_training = create_training_decoder(step, encoder_state, decoder_cell)
     decoder_outputs_inference = create_inference_decoder(step, encoder_state, decoder_cell)
@@ -33,10 +33,10 @@ def create_graph(step: TensorflowV1ModelStep)
 """
 
 
-def create_loss(step: TensorflowV1ModelStep):
+def create_loss(step: TensorflowV1ModelStep, context: ExecutionContext):
     return tf.reduce_sum(tf.pow(step['output'] - step['expected_outputs'], 2)) / (2 * N_SAMPLES)
 
-def create_optimizer(step: TensorflowV1ModelStep):
+def create_optimizer(step: TensorflowV1ModelStep, context: ExecutionContext):
     return tf.train.GradientDescentOptimizer(step.hyperparams['learning_rate'])
 
 model_step = TensorflowV1ModelStep(
@@ -56,10 +56,10 @@ model_step = TensorflowV1ModelStep(
 Create a tensorflow 2 model step by giving it a model, an optimizer, and a loss function. 
 
 ```python
-def create_model(step: Tensorflow2ModelStep):
+def create_model(step: Tensorflow2ModelStep, context: ExecutionContext):
     return LinearModel()
 
-def create_optimizer(step: Tensorflow2ModelStep):
+def create_optimizer(step: Tensorflow2ModelStep, context: ExecutionContext):
     return tf.keras.optimizers.Adam(0.1)
 
 def create_loss(step: Tensorflow2ModelStep, expected_outputs, predicted_outputs):
@@ -94,36 +94,18 @@ feature_0_metric = metric_3d_to_2d_wrapper(mean_squared_error)
 metrics = {'mse': feature_0_metric}
 
 signal_prediction_pipeline = Pipeline([
-    ForEachDataInput(MeanStdNormalizer()),
-    ToNumpy(),
-    Tensorflow2ModelStep(
-        create_model=create_model,
-        create_loss=create_loss,
-        create_optimizer=create_optimizer,
-        expected_outputs_dtype=tf.dtypes.float32,
-        data_inputs_dtype=tf.dtypes.float32,
-        print_loss=True
-    ).set_hyperparams(seq2seq_pipeline_hyperparams)
-]).set_name('SignalPrediction')
-
-pipeline = Pipeline([EpochRepeater(
-    ValidationSplitWrapper(
-        MetricsWrapper(Pipeline([
-            TrainOnlyWrapper(DataShuffler()),
-            MiniBatchSequentialPipeline([
-                MetricsWrapper(
-                    signal_prediction_pipeline,
-                    metrics=metrics,
-                    name='batch_metrics'
-                )
-            ], batch_size=batch_size)
-        ]), metrics=metrics,
-            name='epoch_metrics',
-            print_metrics=True
-        ),
-        test_size=validation_size,
-        scoring_function=feature_0_metric
-    ), epochs=epochs)])
+    TrainOnly(DataShuffler()),
+    WindowTimeSeries(),
+    MeanStdNormalizer(),
+    MiniBatchSequentialPipeline([
+        Tensorflow2ModelStep(
+            create_model=create_model,
+            create_loss=create_loss,
+            create_optimizer=create_optimizer,
+            print_loss=True
+        ).set_hyperparams(seq2seq_pipeline_hyperparams)
+    ])
+])
 
 pipeline, outputs = pipeline.fit_transform(data_inputs, expected_outputs)
 ```

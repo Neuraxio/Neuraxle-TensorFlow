@@ -70,7 +70,7 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
             tf_model_checkpoint_folder = 'tensorflow_ckpts'
         self.tf_model_checkpoint_folder = tf_model_checkpoint_folder
 
-    def setup(self) -> BaseStep:
+    def setup(self, context: ExecutionContext) -> BaseStep:
         """
         Setup optimizer, model, and checkpoints for saving.
 
@@ -81,8 +81,8 @@ class Tensorflow2ModelStep(BaseTensorflowModelStep):
             return self
 
         with tf.device(self.device_name):
-            self.optimizer = self.create_optimizer(self)
-            self.model = self.create_model(self)
+            self.optimizer = self.create_optimizer(self, context)
+            self.model = self.create_model(self, context)
 
             self.checkpoint = tf.train.Checkpoint(step=tf.Variable(1), optimizer=self.optimizer, net=self.model)
             self.checkpoint_manager = tf.train.CheckpointManager(
@@ -199,7 +199,7 @@ class TensorflowV2StepSaver(BaseSaver):
         :return: loaded step
         """
         step.is_initialized = False
-        step.setup()
+        step.setup(context)
         step.checkpoint.restore(step.checkpoint_manager.latest_checkpoint)
         return step
 

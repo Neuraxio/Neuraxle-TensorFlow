@@ -12,7 +12,7 @@ N_SAMPLES = 17
 MATMUL_VARIABLE_SCOPE = "matmul"
 
 
-def create_graph(step: TensorflowV1ModelStep):
+def create_graph(step: TensorflowV1ModelStep, context: ExecutionContext):
     tf.placeholder('float', name='data_inputs')
     tf.placeholder('float', name='expected_outputs')
 
@@ -22,11 +22,11 @@ def create_graph(step: TensorflowV1ModelStep):
     return tf.add(tf.multiply(step['data_inputs'], step['weight']), step['bias'])
 
 
-def create_loss(step: TensorflowV1ModelStep):
+def create_loss(step: TensorflowV1ModelStep, context: ExecutionContext):
     return tf.reduce_sum(tf.pow(step['output'] - step['expected_outputs'], 2)) / (2 * N_SAMPLES)
 
 
-def create_optimizer(step: TensorflowV1ModelStep):
+def create_optimizer(step: TensorflowV1ModelStep, context: ExecutionContext):
     return tf.train.GradientDescentOptimizer(step.hyperparams['learning_rate'])
 
 

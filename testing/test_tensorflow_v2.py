@@ -23,16 +23,16 @@ def toy_dataset():
         dict(x=inputs, y=labels)).repeat(10).batch(2)
 
 
-def create_model(step: Tensorflow2ModelStep):
+def create_model(step: Tensorflow2ModelStep, context: ExecutionContext):
     return LinearModel()
 
 
-def create_optimizer(step: Tensorflow2ModelStep):
+def create_optimizer(step: Tensorflow2ModelStep, context: ExecutionContext):
     return tf.keras.optimizers.Adam(0.1)
 
 
-def create_loss(step: Tensorflow2ModelStep, expected_outputs, actual_outputs):
-    return tf.reduce_mean(tf.abs(actual_outputs - expected_outputs))
+def create_loss(step: Tensorflow2ModelStep, expected_outputs, predicted_outputs):
+    return tf.reduce_mean(tf.abs(predicted_outputs - expected_outputs))
 
 
 def test_tensorflowv2_saver(tmpdir):
